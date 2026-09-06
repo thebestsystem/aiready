@@ -161,6 +161,107 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertEqual(self.client.get("/css/components.css").status_code, 200)
         self.assertEqual(self.client.get("/js/app.js").status_code, 200)
 
+    def test_07_rate_limit_scan(self):
+        """Étape 7 (TACHE-01) : Rate-limit anti-abus sur /api/scan (10 req / 60s par défaut)."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        # Mock des appels réseau sortants de scan_url pour un test unitaire hermétique et rapide
+        mock_resp = MagicMock()
+        mock_resp.text = "<html><head><title>Boutique Test</title></head><body><h1>Boutique</h1></body></html>"
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/html"}
+
+        fake_robots = {"found": True, "global_disallowed": False, "disallowed_bots": [], "raw": ""}
+        fake_llms = {"found": True, "path": "/.well-known/llms.txt", "content": "# LLMs.txt\nAPI: https://api.boutique.fr\nOpenAPI: /openapi.json"}
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=fake_robots), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms):
+
+            ip_a = "192.168.1.100"
+            limit = server._scan_limiter.limit  # 10 par défaut
+
+            # 1. Les N premières requêtes sous le seuil sont acceptées (200)
+            for i in range(limit):
+                res = self.client.post(
+                    "/api/scan",
+                    json={"url": "https://boutique-test.fr"},
+                    headers={"X-Forwarded-For": ip_a}
+                )
+                self.assertEqual(res.status_code, 200, f"Requête {i+1} de l'IP {ip_a} devrait passer")
+
+            # 2. La (N+1)ème requête dépasse la limite -> HTTP 429 non-fatale avec en-têtes standard
+            res_blocked = self.client.post(
+                "/api/scan",
+                json={"url": "https://boutique-test.fr"},
+                headers={"X-Forwarded-For": ip_a}
+            )
+            self.assertEqual(res_blocked.status_code, 429)
+            self.assertIn("Retry-After", res_blocked.headers)
+            body = res_blocked.json()
+            self.assertIn("detail", body)
+            self.assertIn("retry_after", body)
+            self.assertGreaterEqual(body["retry_after"], 1)
+
+            # 3. Une IP distincte n'est PAS bloquée (isolation stricte par IP)
+            ip_b = "192.168.1.200"
+            res_ip_b = self.client.post(
+                "/api/scan",
+                json={"url": "https://boutique-test.fr"},
+                headers={"X-Forwarded-For": ip_b}
+            )
+            self.assertEqual(res_ip_b.status_code, 200, f"L'IP {ip_b} distincte ne doit pas être bloquée")
+
+        # 4. Vérification de la configurabilité dynamique par variable d'environnement
+        server._scan_limiter.reset()
+        os.environ["SCAN_RATE_LIMIT"] = "2"
+        self.assertEqual(server._scan_limiter.limit, 2)
+        server._scan_limiter.reset()
+        del os.environ["SCAN_RATE_LIMIT"]
+
+    def test_08_rate_limit_simulate_question(self):
+        """Étape 8 (TACHE-01) : Rate-limit plus strict sur /api/gemini/simulate-question (5 req / 60s)."""
+        server._sim_limiter.reset()
+
+        ip_x = "10.0.0.50"
+        limit = server._sim_limiter.limit  # 5 par défaut
+
+        # 1. 5 requêtes consécutives sur le simulateur passent normalement (200)
+        for i in range(limit):
+            res = self.client.post(
+                "/api/gemini/simulate-question",
+                json={"question": f"Question {i+1} sur le produit"},
+                headers={"X-Forwarded-For": ip_x}
+            )
+            self.assertEqual(res.status_code, 200, f"Question {i+1} de l'IP {ip_x} devrait passer")
+
+        # 2. 6ème requête -> HTTP 429 avec Retry-After et JSON clair
+        res_blocked = self.client.post(
+            "/api/gemini/simulate-question",
+            json={"question": "Question 6 en dépassement"},
+            headers={"X-Forwarded-For": ip_x}
+        )
+        self.assertEqual(res_blocked.status_code, 429)
+        self.assertIn("Retry-After", res_blocked.headers)
+        data = res_blocked.json()
+        self.assertIn("detail", data)
+        self.assertIn("retry_after", data)
+        self.assertGreaterEqual(data["retry_after"], 1)
+        self.assertIn("/api/gemini/simulate-question", data["detail"])
+
+        # 3. Isolation : une IP différente n'est pas impactée
+        ip_y = "10.0.0.51"
+        res_ip_y = self.client.post(
+            "/api/gemini/simulate-question",
+            json={"question": "Question légitime d'un autre prospect"},
+            headers={"X-Forwarded-For": ip_y}
+        )
+        self.assertEqual(res_ip_y.status_code, 200)
+
+        server._sim_limiter.reset()
+
 
 if __name__ == "__main__":
     unittest.main()
+

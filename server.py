@@ -41,10 +41,13 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+import time
+from collections import defaultdict
+
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
@@ -76,6 +79,151 @@ else:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
     )
+
+# ==========================================================================
+# Rate-limit anti-abus (TACHE-01) — fenêtre glissante en mémoire par IP
+# ==========================================================================
+# Choix de parsing X-Forwarded-For : on utilise le DERNIER élément de la
+# chaîne (le plus proche du serveur), car c'est celui ajouté par le proxy de
+# confiance (Railway). Se fier au premier élément permettrait à un client de
+# spoof l'en-tête et de contourner la limite (faille de spoofing).
+# En déploiement direct (sans proxy), request.client.host est l'IP réelle.
+
+
+class RateLimitExceeded(HTTPException):
+    """Exception levée en cas de dépassement de quota (HTTP 429)."""
+    def __init__(self, detail: str, retry_after: int):
+        super().__init__(
+            status_code=429,
+            detail=detail,
+            headers={"Retry-After": str(retry_after)}
+        )
+        self.retry_after = retry_after
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": exc.detail,
+            "retry_after": exc.retry_after
+        },
+        headers={"Retry-After": str(exc.retry_after)}
+    )
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extrait l'IP réelle du client derrière un éventuel reverse proxy."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # Dernier élément = IP ajoutée par le proxy de confiance le plus proche
+        return forwarded.split(",")[-1].strip()
+    return request.client.host if request.client else "unknown"
+
+
+class _SlidingWindowRateLimiter:
+    """Fenêtre glissante en mémoire : dict IP -> liste de timestamps.
+
+    NOTE: ce mécanisme est mono-processus (uvicorn single worker). En multi-worker,
+    il faudra migrer vers Redis (prévu P2).
+    """
+
+    def __init__(self, limit: int, window_seconds: int, limit_env_key: Optional[str] = None, window_env_key: Optional[str] = None):
+        self._default_limit = limit
+        self._default_window = window_seconds
+        self._limit_env_key = limit_env_key
+        self._window_env_key = window_env_key
+        self._override_limit = None
+        self._override_window = None
+        self._hits: Dict[str, List[float]] = defaultdict(list)
+
+    @property
+    def limit(self) -> int:
+        if self._override_limit is not None:
+            return self._override_limit
+        if self._limit_env_key:
+            try:
+                return int(os.getenv(self._limit_env_key, str(self._default_limit)))
+            except ValueError:
+                return self._default_limit
+        return self._default_limit
+
+    @limit.setter
+    def limit(self, val: int) -> None:
+        self._override_limit = val
+
+    @property
+    def window_seconds(self) -> int:
+        if self._override_window is not None:
+            return self._override_window
+        if self._window_env_key:
+            try:
+                return int(os.getenv(self._window_env_key, str(self._default_window)))
+            except ValueError:
+                return self._default_window
+        return self._default_window
+
+    @window_seconds.setter
+    def window_seconds(self, val: int) -> None:
+        self._override_window = val
+
+    def reset(self) -> None:
+        """Vide toutes les fenêtres (utile pour les tests)."""
+        self._hits.clear()
+        self._override_limit = None
+        self._override_window = None
+
+    def check(self, ip: str) -> Optional[int]:
+        """Enregistre un hit et renvoie le délai d'attente (s) si dépassé, sinon None."""
+        now = time.time()
+        window_start = now - self.window_seconds
+        # Purge des entrées expirées pour cette IP
+        self._hits[ip] = [t for t in self._hits[ip] if t > window_start]
+        if len(self._hits[ip]) >= self.limit:
+            retry_after = int(self.window_seconds - (now - self._hits[ip][0])) + 1
+            return max(retry_after, 1)
+        self._hits[ip].append(now)
+        # Purge globale des IP inactives pour éviter une fuite mémoire en croissance infinie
+        if len(self._hits) > 1000:
+            cutoff = now - self.window_seconds
+            self._hits = defaultdict(
+                list,
+                {k: [t for t in v if t > cutoff] for k, v in self._hits.items() if any(t > cutoff for t in v)}
+            )
+        return None
+
+
+# Limites configurables par env (défauts permissifs pour ne pas casser la démo front légitime)
+SCAN_RATE_LIMIT = int(os.getenv("SCAN_RATE_LIMIT", "10"))
+SCAN_RATE_WINDOW_SECONDS = int(os.getenv("SCAN_RATE_WINDOW_SECONDS", "60"))
+SIM_RATE_LIMIT = int(os.getenv("SIM_RATE_LIMIT", "5"))
+SIM_RATE_WINDOW_SECONDS = int(os.getenv("SIM_RATE_WINDOW_SECONDS", "60"))
+
+_scan_limiter = _SlidingWindowRateLimiter(SCAN_RATE_LIMIT, SCAN_RATE_WINDOW_SECONDS, "SCAN_RATE_LIMIT", "SCAN_RATE_WINDOW_SECONDS")
+_sim_limiter = _SlidingWindowRateLimiter(SIM_RATE_LIMIT, SIM_RATE_WINDOW_SECONDS, "SIM_RATE_LIMIT", "SIM_RATE_WINDOW_SECONDS")
+
+
+def _enforce_rate_limit(request: Request, limiter: _SlidingWindowRateLimiter, endpoint_name: str) -> None:
+    """Refuse 429 (JSON + Retry-After) si la limite par IP est dépassée."""
+    ip = _get_client_ip(request)
+    retry_after = limiter.check(ip)
+    if retry_after is not None:
+        raise RateLimitExceeded(
+            detail=f"Trop de requêtes sur {endpoint_name}. Réessayez dans {retry_after} s.",
+            retry_after=retry_after
+        )
+
+
+def _scan_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : rate-limit du scanner lourd."""
+    _enforce_rate_limit(request, _scan_limiter, "/api/scan")
+
+
+def _sim_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : rate-limit du simulateur LLM coûteux."""
+    _enforce_rate_limit(request, _sim_limiter, "/api/gemini/simulate-question")
+
 
 class ScanRequest(BaseModel):
     url: str
@@ -595,7 +743,7 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
 
     return None
 
-@app.post("/api/scan", response_model=AuditResult)
+@app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
 async def scan_url(req: ScanRequest):
     url = normalize_url(req.url)
     parsed = urlparse(url)
@@ -938,7 +1086,7 @@ async def test_gemini_key(payload: Dict[str, str]):
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
-@app.post("/api/gemini/simulate-question")
+@app.post("/api/gemini/simulate-question", dependencies=[Depends(_sim_rate_limit)])
 async def simulate_question(req: SimQuestionRequest):
     client = _get_gemini_client(req.geminiApiKey)
     prod = req.productData or {}
