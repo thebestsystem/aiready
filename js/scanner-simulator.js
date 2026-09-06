@@ -13,6 +13,15 @@ export class ScannerSimulator {
     this.progressStatus = document.getElementById('scan-progress-text');
     this.stepsList = document.querySelectorAll('.scan-step-item');
     this.resultsCard = document.getElementById('audit-results-card');
+
+    // Scan error banner (TACHE-03 UX)
+    this.errorBox = document.getElementById('scan-error-box');
+    this.errorHead = document.getElementById('scan-error-head');
+    this.errorTitle = document.getElementById('scan-error-title');
+    this.errorMessage = document.getElementById('scan-error-message');
+    this.btnRetryScanError = document.getElementById('btn-retry-scan-error');
+    this.errorContact = document.getElementById('scan-error-contact');
+    this.lastScannedUrl = '';
     
     // Result elements
     this.scoreNumber = document.getElementById('gauge-score-val');
@@ -182,6 +191,17 @@ export class ScannerSimulator {
     if (this.btnCopyInline) {
       this.btnCopyInline.addEventListener('click', () => this.copyInlineCode());
     }
+
+    // Retry a failed scan from the error banner (TACHE-03 UX)
+    if (this.btnRetryScanError) {
+      this.btnRetryScanError.addEventListener('click', () => {
+        if (this.isScanning) return;
+        const url = this.lastScannedUrl || (this.input ? this.input.value.trim() : '');
+        if (!url) return;
+        if (this.input) this.input.value = url;
+        this.runScan(url);
+      });
+    }
   }
 
   async runScan(customUrl) {
@@ -212,6 +232,8 @@ export class ScannerSimulator {
 
     // Real Live URL Scan via FastAPI Backend (relative URL works in local & Railway)
     this.isScanning = true;
+    this.lastScannedUrl = customUrl.trim();
+    this.hideScanError();
     this.startProgressUI();
 
     try {
@@ -225,8 +247,20 @@ export class ScannerSimulator {
         })
       });
 
+      // TACHE-03 UX : Un refus explicite du backend (400/404/413/415/429/5xx) ne doit
+      // PLUS être masqué par un faux résultat "friction". On affiche le message réel.
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        let statusInfo = `Erreur HTTP ${response.status}`;
+        let backendDetail = '';
+        try {
+          const body = await response.json();
+          if (body && typeof body.detail === 'string') backendDetail = body.detail;
+        } catch (_e) { /* corps non-JSON, on garde statusInfo */ }
+        this.completeProgressUI(() => {
+          this.showScanError(response.status, backendDetail || statusInfo, customUrl.trim());
+          this.isScanning = false;
+        });
+        return; // pas de fallback : une erreur backend est informative, pas un résultat
       }
 
       const realData = await response.json();
@@ -238,28 +272,70 @@ export class ScannerSimulator {
       });
 
     } catch (err) {
-      console.warn('Backend scan failed, mode heuristique déterministe :', err);
+      // Échec RÉSEAU réel (backend injoignable / hors-ligne) : pas d'erreur HTTP à montrer.
+      // On garde un repli non-crash mais on le signale explicitement pour ne pas
+      // faire passer ce scénario pour un véritable audit du site.
+      console.warn('Backend unreachable, fallback démo transparent :', err);
       const cleanDomain = customUrl.trim().replace(/^https?:\/\//, '').split('/')[0];
-      const fallbackData = { ...AUDIT_PRESETS['friction'] };
-      fallbackData.domain = customUrl.trim();
-      fallbackData.name = `Boutique : ${cleanDomain}`;
-      fallbackData.productData = {
-        name: `Article scanné (${cleanDomain})`,
-        brand: cleanDomain,
-        price: "À confirmer",
-        currency: "EUR",
-        description: `Analyse directe de la boutique ${cleanDomain}. Schéma partiel détecté.`,
-        has_stock: false,
-        has_shipping: false,
-        has_return: false
-      };
-      fallbackData.summary = `Le site ${cleanDomain} est accessible mais certaines données structurées sont incomplètes.`;
-      
       this.completeProgressUI(() => {
+        this.showScanError(null, `Le scan en direct est indisponible (${err && err.name ? err.name : 'réseau'}). Un aperçu de démonstration est affiché — vérifiez que le service /api/scan répond puis réessayez.`, customUrl.trim());
+        const fallbackData = { ...AUDIT_PRESETS['friction'] };
+        fallbackData.domain = customUrl.trim();
+        fallbackData.name = `Boutique : ${cleanDomain}`;
+        fallbackData.productData = {
+          name: `Article scanné (${cleanDomain})`,
+          brand: cleanDomain,
+          price: "À confirmer",
+          currency: "EUR",
+          description: `Analyse directe de la boutique ${cleanDomain}. Schéma partiel détecté.`,
+          has_stock: false,
+          has_shipping: false,
+          has_return: false
+        };
+        fallbackData.summary = `Le site ${cleanDomain} est accessible mais certaines données structurées sont incomplètes.`;
         this.displayResults(fallbackData);
         this.isScanning = false;
       });
     }
+  }
+
+  hideScanError() {
+    if (!this.errorBox) return;
+    this.errorBox.style.display = 'none';
+    this.errorBox.classList.remove('is-hard');
+  }
+
+  showScanError(status, message, url) {
+    if (!this.errorBox) {
+      console.warn('Bandeau d\'erreur absent du DOM, message ignoré :', message);
+      return;
+    }
+    // Cache tout résultat précédent : on est dans un état d'erreur, pas un audit.
+    if (this.resultsCard) this.resultsCard.classList.remove('active');
+    const wafCard = document.getElementById('waf-blocked-card');
+    if (wafCard) wafCard.style.display = 'none';
+
+    // Titre contextuel selon la classe de statut.
+    let hard = true;
+    let title = 'Scan non effectué';
+    if (status === 408 || status === null) { title = 'Scan indisponible'; hard = false; }
+    else if (status === 429) { title = 'Trop de scans — patientez un instant'; }
+    else if (status === 404) { title = 'Page introuvable'; }
+    else if (status === 413) { title = 'Page trop volumineuse'; }
+    else if (status === 415) { title = 'Ce n\'est pas une page web'; }
+
+    if (this.errorTitle) this.errorTitle.textContent = title;
+    if (this.errorMessage) this.errorMessage.textContent = message || 'L\'analyse n\'a pas pu aboutir.';
+    this.errorBox.classList.toggle('is-hard', hard);
+    this.errorBox.style.display = 'block';
+
+    // Pré-remplit le lien de contact avec l'URL fautive pour un suivi simple.
+    const subject = encodeURIComponent(`Demande d'aide : scan de ${url || 'un site'}`);
+    if (this.errorContact) {
+      this.errorContact.href = `mailto:contact@agentready.io?subject=${subject}`;
+    }
+
+    this.errorBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   startProgressUI() {

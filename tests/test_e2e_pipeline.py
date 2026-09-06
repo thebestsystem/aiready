@@ -79,6 +79,11 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertNotIn("Pondération : Crawl 30% · Schema 40% · Tokens 30%", html)
         self.assertNotIn("3 Piliers V1", html)
 
+        # TACHE-03 UX : présence du bandeau d'erreur explicite (+ bouton réessayer)
+        self.assertIn('id="scan-error-box"', html)
+        self.assertIn('id="btn-retry-scan-error"', html)
+        self.assertIn('id="scan-error-message"', html)
+
     def test_03_ai_buyer_simulator_modes(self):
         """Étape 3 : Simulateur - sans clé, live, et cascade quota saturé."""
         # 3.1 Sans client / sans clé

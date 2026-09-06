@@ -1266,6 +1266,39 @@ pre code {
   word-break: break-word;
 }
 
+/* Scan error / explicit refusal state (TACHE-03 UX) */
+.scan-error-box {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin-top: 1.25rem;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.10);
+  animation: fadeIn 0.3s ease-out forwards;
+  text-align: left;
+}
+.scan-error-box.is-hard {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.10);
+}
+.scan-error-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  color: #fbbf24;
+  margin-bottom: 0.45rem;
+}
+.scan-error-box.is-hard .scan-error-head { color: #f87171; }
+.scan-error-message { line-height: 1.6; font-size: 0.9rem; color: var(--text-secondary); }
+.scan-error-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
 /* WAF / CSR Fallback State (Task 4) */
 .waf-blocked-card {
   background: rgba(239, 68, 68, 0.08);

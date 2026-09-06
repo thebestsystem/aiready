@@ -141,6 +141,23 @@
           </ul>
         </div>
 
+        <!-- Scan Error / Backend explicit refusal Banner (TACHE-03 UX) -->
+        <div id="scan-error-box" class="scan-error-box" style="display: none;">
+          <div class="scan-error-head" id="scan-error-head">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="scan-error-title">Scan non effectué</span>
+          </div>
+          <p id="scan-error-message" class="scan-error-message"></p>
+          <div class="scan-error-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-retry-scan-error" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
+              <i class="fas fa-redo"></i> Réessayer ce scan
+            </button>
+            <a id="scan-error-contact" class="btn btn-secondary btn-sm" href="#">
+              <i class="fas fa-envelope"></i> Contacter un conseiller
+            </a>
+          </div>
+        </div>
+
         <!-- WAF / CSR Fallback Banner (Task 4) -->
         <div id="waf-blocked-card" class="waf-blocked-card" style="display: none;">
           <div style="font-size: 1.1rem; font-weight: 800; color: #f87171; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
