@@ -374,6 +374,7 @@ _PRIVATE_NETWORKS_REASONS = {
 }
 _RESERVED_HOST_SUFFIXES = (".local", ".internal", ".localhost", ".home.arpa")
 _RESERVED_HOST_PREFIXES = ("metadata.", "kubernetes.", "kube-", "rancher-meta")
+_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
 
 
 def _is_nonpublic_ip(ip_str: str) -> bool:
@@ -382,6 +383,13 @@ def _is_nonpublic_ip(ip_str: str) -> bool:
         ip = ipaddress.ip_address(ip_str)
     except ValueError:
         return True  # illisible -> on considère non sûr
+
+    # Cas spécial NAT64 (RFC 6052 / RFC 6146 - 64:ff9b::/96)
+    # L'adresse IPv6 synthétisée encapsule une IPv4 publique dans ses 32 derniers bits
+    if ip.version == 6 and ip in _NAT64_PREFIX:
+        embedded_v4 = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        return _is_nonpublic_ip(str(embedded_v4))
+
     return not ip.is_global or ip.is_private or ip.is_loopback or ip.is_link_local \
         or ip.is_reserved or ip.is_multicast or ip.is_unspecified
 
@@ -402,7 +410,7 @@ def _structural_ssrf_reason(host: str) -> Optional[str]:
         # ipv6 littéral [::{...}]
         inner = candidate[1:candidate.find("]")] if "]" in candidate else candidate[1:]
         try:
-            return None if ipaddress.ip_address(inner).is_global else "adresse IPv6 réservée"
+            return None if not _is_nonpublic_ip(inner) else "adresse IPv6 réservée/privée (SSRF)"
         except ValueError:
             pass
     if ":" in candidate and candidate.count(":") == 1:
@@ -418,17 +426,25 @@ def _structural_ssrf_reason(host: str) -> Optional[str]:
     return None
 
 
-def _resolve_first_ip(host: str) -> Optional[str]:
-    """Résout le hostname (socket) et retourne la première IP, ou None si KO."""
+def _resolve_all_ips(host: str) -> List[str]:
+    """Résout le hostname (socket) et retourne toutes les IP uniques résolues."""
     try:
         infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
     except Exception:
-        return None
-    for fam, _, _, _, sockaddr in infos:
-        ip = sockaddr[0] if sockaddr else None
-        if ip:
-            return ip
-    return None
+        return []
+    ips = []
+    for *_, sockaddr in infos:
+        if sockaddr and sockaddr[0]:
+            ip = sockaddr[0]
+            if ip not in ips:
+                ips.append(ip)
+    return ips
+
+
+def _resolve_first_ip(host: str) -> Optional[str]:
+    """Résout le hostname (socket) et retourne la première IP, ou None si KO."""
+    all_ips = _resolve_all_ips(host)
+    return all_ips[0] if all_ips else None
 
 
 async def _assert_scan_target_ok(url: str) -> None:
@@ -439,12 +455,13 @@ async def _assert_scan_target_ok(url: str) -> None:
     if reason:
         raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : {reason}.")
     # Couche DNS (seulement hôte non littéral) + tolérant si résolution impossible.
-    resolved = await asyncio.to_thread(_resolve_first_ip, host) if host else None
-    if resolved is None:
+    resolved = await asyncio.to_thread(_resolve_all_ips, host) if host else None
+    if not resolved:
         return  # DNS indisponible → on laisse httpx décider (démo/test)
-    r = _structural_ssrf_reason(resolved)
-    if r:
-        raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {r}.")
+    # Bloque si toutes les adresses résolues sont non-publiques
+    if all(_is_nonpublic_ip(ip) for ip in resolved):
+        first_reason = _structural_ssrf_reason(resolved[0]) or "adresse IP réservée/privée (SSRF)"
+        raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {first_reason}.")
 
 async def _read_page_bounded(resp: httpx.Response, limit: int) -> bytes:
     """Lit le corps d'une réponse httpx sans jamais conserver plus de `limit` octets.

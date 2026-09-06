@@ -14,6 +14,7 @@ Validation automatisée du parcours complet :
 import os
 import sys
 import json
+import socket
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -582,11 +583,20 @@ class TestE2EPipeline(unittest.TestCase):
         fake_page.headers = {"content-type": "text/html; charset=utf-8"}
         fake_page.text = html_books
 
+        # Mock getaddrinfo pour simuler un réseau IPv6/NAT64 (64:ff9b:: en 1er, IPv4 en 2nd)
+        # Rend le test 100% hermétique et immunisé aux variations de DNS locaux/cloud
+        mock_addrinfo = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("64:ff9b::23d3:7a6d", 443, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("35.211.122.109", 443)),
+        ]
+
+        import socket as _socket
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_page), \
              patch("server.fetch_robots_txt", new_callable=AsyncMock,
                    return_value={"found": False, "global_disallowed": False, "disallowed_bots": [], "raw": ""}), \
              patch("server.check_llms_txt", new_callable=AsyncMock,
-                   return_value={"found": False, "path": None, "content": None}):
+                   return_value={"found": False, "path": None, "content": None}), \
+             patch("socket.getaddrinfo", return_value=mock_addrinfo):
             res = self.client.post(
                 "/api/scan",
                 json={"url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"},
@@ -654,6 +664,57 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertNotIn("SKU-AUTO-01", snippets_empty["schemaJson"])
         self.assertNotIn("Produit E-commerce", snippets_empty["schemaJson"])
         self.assertIn("contact@boutique.fr", snippets_empty["llmsTxt"])
+
+    def test_20_ssrf_nat64_and_multi_ip_resolution(self):
+        """Sécurité SSRF : Validation NAT64 (RFC 6052) et résolution multi-adresses IP."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        fake_page = MagicMock()
+        fake_page.status_code = 200
+        fake_page.headers = {"content-type": "text/html"}
+        fake_page.text = "<html><body><h1>OK</h1></body></html>"
+
+        # 1. NAT64 encapsulant une IPv4 publique (ex: 35.211.122.109 -> 64:ff9b::23d3:7a6d) : autorisé
+        mock_nat64_public = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("64:ff9b::23d3:7a6d", 443, 0, 0))
+        ]
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_page), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock,
+                   return_value={"found": False, "global_disallowed": False, "disallowed_bots": [], "raw": ""}), \
+             patch("server.check_llms_txt", new_callable=AsyncMock,
+                   return_value={"found": False, "path": None, "content": None}), \
+             patch("socket.getaddrinfo", return_value=mock_nat64_public):
+            res = self.client.post("/api/scan", json={"url": "https://boutique-nat64-public.fr"},
+                                   headers={"X-Forwarded-For": "10.200.1.1"})
+            self.assertEqual(res.status_code, 200, "Une IPv6 NAT64 pointant vers une IPv4 publique doit être acceptée")
+
+        server._scan_limiter.reset()
+
+        # 2. NAT64 encapsulant une IPv4 privée (ex: 127.0.0.1 -> 64:ff9b::7f00:0001) : bloqué 400 (SSRF)
+        mock_nat64_private = [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("64:ff9b::7f00:0001", 443, 0, 0))
+        ]
+        with patch("socket.getaddrinfo", return_value=mock_nat64_private):
+            res = self.client.post("/api/scan", json={"url": "https://fake-ssrf-nat64.fr"},
+                                   headers={"X-Forwarded-For": "10.200.1.2"})
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("SSRF", res.json()["detail"])
+
+        server._scan_limiter.reset()
+
+        # 3. Hôte multi-IP où TOUTES les IP sont privées : bloqué 400 (SSRF)
+        mock_all_private = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.1", 80)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 80)),
+        ]
+        with patch("socket.getaddrinfo", return_value=mock_all_private):
+            res = self.client.post("/api/scan", json={"url": "https://internal-multi.fr"},
+                                   headers={"X-Forwarded-For": "10.200.1.3"})
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("SSRF", res.json()["detail"])
+
+        server._scan_limiter.reset()
 
 
 if __name__ == "__main__":
