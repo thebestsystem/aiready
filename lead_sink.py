@@ -8,6 +8,7 @@ Garantie zéro-perte : aucun échec distant ne bloque l'expérience utilisateur.
 
 import os
 import csv
+import html
 import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -145,6 +146,57 @@ def _send_slack_alert(
         return False
 
 
+RESEND_API_URL = "https://api.resend.com/emails"
+RESEND_DEFAULT_FROM = "AgentReady <audit@8dev.net>"
+
+
+def _send_resend_email(
+    api_key: str,
+    from_addr: str,
+    to_addr: str,
+    email: str,
+    domain: str,
+    name: str,
+    score: int,
+    status: str,
+    risk: str,
+    source: str
+) -> bool:
+    """Envoie une alerte email temps réel aux fondateurs via Resend (transactionnel)."""
+    if not api_key or not from_addr or not to_addr:
+        return False
+
+    payload = {
+        "from": from_addr,
+        "to": [to_addr],
+        "subject": f"🚀 Nouveau lead AgentReady : {domain} ({score}/100)",
+        "html": (
+            "<h3>🚨 Nouveau lead e-commerce capturé</h3>"
+            "<ul>"
+            f"<li><b>Email :</b> {html.escape(email)}</li>"
+            f"<li><b>Boutique :</b> {html.escape(domain)}</li>"
+            f"<li><b>Produit :</b> {html.escape(name)}</li>"
+            f"<li><b>Score :</b> {score}/100 ({html.escape(status)})</li>"
+            f"<li><b>Risque hallucination :</b> {html.escape(risk)}</li>"
+            f"<li><b>Origine :</b> {html.escape(source)}</li>"
+            f"<li><b>Date :</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</li>"
+            "</ul>"
+        ),
+    }
+
+    try:
+        resp = httpx.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            timeout=5.0,
+        )
+        return resp.status_code in (200, 201, 202)
+    except Exception as e:
+        logger.warning(f"Échec email Resend : {e}")
+        return False
+
+
 def _save_to_csv(
     email: str,
     domain: str,
@@ -192,6 +244,7 @@ def dispatch_lead(
     1. Backup local CSV (toujours garanti)
     2. Insertion PostgreSQL transactionnelle (si DATABASE_URL configurée)
     3. Alerte Slack temps réel (si SLACK_WEBHOOK_URL configurée)
+    4. Email de notification fondateur Resend (si RESEND_API_KEY + RESEND_NOTIFY_TO configurés)
     """
     csv_ok = _save_to_csv(email, domain, name, score, status, risk, source)
 
@@ -201,8 +254,18 @@ def dispatch_lead(
     slack_url = os.getenv("SLACK_WEBHOOK_URL")
     slack_ok = _send_slack_alert(slack_url, email, domain, name, score, status, risk, source) if slack_url else False
 
+    resend_key = os.getenv("RESEND_API_KEY")
+    resend_from = os.getenv("RESEND_FROM") or RESEND_DEFAULT_FROM
+    resend_to = os.getenv("RESEND_NOTIFY_TO")
+    resend_ok = (
+        _send_resend_email(resend_key, resend_from, resend_to, email, domain, name, score, status, risk, source)
+        if resend_key and resend_to
+        else False
+    )
+
     return {
         "csv_saved": csv_ok,
         "db_saved": db_ok,
-        "slack_sent": slack_ok
+        "slack_sent": slack_ok,
+        "resend_sent": resend_ok
     }

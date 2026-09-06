@@ -716,6 +716,44 @@ class TestE2EPipeline(unittest.TestCase):
 
         server._scan_limiter.reset()
 
+    def test_21_resend_lead_notification(self):
+        """Resend : notification email fondateur à chaque lead (configurable, jamais bloquant)."""
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import lead_sink
+
+        # Cas 1 : non configuré -> aucun envoi, resend_sent False
+        with patch.dict(os.environ, {"RESEND_API_KEY": "", "RESEND_FROM": "", "RESEND_NOTIFY_TO": ""}):
+            with patch("lead_sink.httpx.post") as mock_post:
+                res = lead_sink.dispatch_lead(
+                    "prospect@shop.com", "shop.com", "Produit Test", 70,
+                    "Agent Friction", "MOYEN", "scanner"
+                )
+                self.assertFalse(res["resend_sent"])
+                mock_post.assert_not_called()
+
+        # Cas 2 : configuré -> envoi tenté, payload correct, resend_sent True sur 200
+        fake_resp = SimpleNamespace(status_code=200)
+        with patch.dict(os.environ, {
+            "RESEND_API_KEY": "re_test",
+            "RESEND_FROM": "AgentReady <audit@8dev.net>",
+            "RESEND_NOTIFY_TO": "founder@8dev.net",
+        }):
+            with patch("lead_sink.httpx.post", return_value=fake_resp) as mock_post:
+                res = lead_sink.dispatch_lead(
+                    "prospect@shop.com", "shop.com", "Produit Test", 70,
+                    "Agent Friction", "MOYEN", "scanner"
+                )
+                self.assertTrue(res["resend_sent"])
+                mock_post.assert_called_once()
+                args, kwargs = mock_post.call_args
+                self.assertEqual(args[0], "https://api.resend.com/emails")
+                payload = kwargs["json"]
+                self.assertEqual(payload["from"], "AgentReady <audit@8dev.net>")
+                self.assertEqual(payload["to"], ["founder@8dev.net"])
+                self.assertIn("shop.com", payload["subject"])
+                self.assertIn("70/100", payload["subject"])
+
 
 if __name__ == "__main__":
     unittest.main()
