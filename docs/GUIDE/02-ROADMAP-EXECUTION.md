@@ -19,9 +19,10 @@ Vu la stratégie **semi-concierge/high-ticket d'abord** (J0–J60) explicitée d
 
 | # | Lot | Découpage | Priorité | Statut |
 |---|-----|-----------|:--------:|:------:|
-| A1 | **Rate-limit anti-abus** sur `/api/scan` + simulateur | Voir `TACHE-01-ratelimit.md` (`P1-3` initialement "à ouvrir") | Haute | ▶️ TACHE-01 |
-| A2 | **Verrouillage durée/limites scanner** (timeouts, taille domaine, URL non-HTML) | Découpage à venir | Moyenne | ⏳ |
-| A3 | **Bouclage prod réel** : vérifier déploiement Railway + variables d'env + premier scan de démo "client-ready" | Découpage à venir (requiert accès déployeur par l'utilisateur) | Haute | ⏳ bloqué accès |
+| A1 | **Rate-limit anti-abus** sur `/api/scan` + simulateur | `TACHE-01-ratelimit.md` (`P1-3`) | Haute | ✅ TACHE-01 (8/8 tests, livrée sur `main`) |
+| A2 | **Verrouillage durée/limites scanner** (timeouts, taille domaine, URL non-HTML) | `TACHE-02-scanner-hardening.md` | Moyenne | ✅ TACHE-02 (14/14 tests, livrée sur `main`) |
+| A3 | **Bouclage prod réel** : vérifier déploiement Railway + variables d'env + premier scan de démo "client-ready" | à découper (requiert accès déployeur) | Haute | ⏳ bloqué accès |
+| A4 | **UX erreurs backend explicites** (4xx/5xx affichées au lieu d'un faux fallback friction + transparence mode démo) | `PRD` note d'installation front | Moyenne | ✅ TACHE-03 (14/14 tests, livrée sur `main`) |
 
 ## 🟠 Famille B — Monétisation P2 (après validation du manuel)
 

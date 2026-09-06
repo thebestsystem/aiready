@@ -14,5 +14,5 @@
 5. Commit propre, message clair et daté, sur **ta branche de travail** (p.ex. `wip/`), et **pousse**.
 6. Quand tu as terminé la tâche, annonce **clairement et brièvement** : la/les tâche(s) faite(s), les fichiers touchés, le résultat des tests, et d'éventuels points à arbitrer par l'architecte.
 
-**Aujourd'hui, ta tâche active est :** `docs/GUIDE/TACHE-01-ratelimit.md`
-Projette sur la branche `wip/TACHE-01-ratelimit`. Commence.
+**Aujourd'hui, ta tâche active est :** voir `docs/GUIDE/02-ROADMAP-EXECUTION.md` pour la prochaine tâche non faite (le backlog est le fil rouge).
+> MàJ 2026-09-06 (consolidation) : TACHE-01 (rate-limit), TACHE-02 (hardening scanner) et TACHE-03 (UX erreurs backend) sont désormais **livrées et testées** sur la branche `main` unique. L'implémentation a été réalisée en interne (pas via une branche `wip` externe). Commence.  
