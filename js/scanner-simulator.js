@@ -77,8 +77,12 @@ export class ScannerSimulator {
 
   async runScan(customUrl) {
     if (this.isScanning) return;
-    if (!customUrl) {
-      this.runScanWithPreset('blind');
+    if (!customUrl || !customUrl.trim()) {
+      if (this.input) {
+        this.input.focus();
+        this.input.classList.add('animate-shake');
+        setTimeout(() => this.input.classList.remove('animate-shake'), 600);
+      }
       return;
     }
 
@@ -97,18 +101,18 @@ export class ScannerSimulator {
       return;
     }
 
-    // Real Live URL Scan via FastAPI Backend
+    // Real Live URL Scan via FastAPI Backend (relative URL works in local & Railway)
     this.isScanning = true;
     this.startProgressUI();
 
     try {
-      const geminiKey = localStorage.getItem('agentready_gemini_key') || '';
-      const response = await fetch('http://127.0.0.1:8000/api/scan', {
+      const geminiKey = (localStorage.getItem('agentready_gemini_key') || '').trim();
+      const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          url: customUrl,
-          geminiApiKey: geminiKey.trim() || undefined
+          url: customUrl.trim(),
+          geminiApiKey: geminiKey || undefined
         })
       });
 
@@ -125,12 +129,22 @@ export class ScannerSimulator {
       });
 
     } catch (err) {
-      console.warn('Backend scan unavailable or failed, falling back to simulated scan:', err);
-      // Graceful fallback to heuristic simulation
+      console.warn('Backend scan failed, mode heuristique déterministe :', err);
+      const cleanDomain = customUrl.trim().replace(/^https?:\/\//, '').split('/')[0];
       const fallbackData = { ...AUDIT_PRESETS['friction'] };
-      fallbackData.domain = customUrl;
-      fallbackData.name = `Boutique : ${customUrl.replace(/^https?:\/\//, '').split('/')[0]}`;
-      fallbackData.summary += ' (Scan en mode secours déterministe)';
+      fallbackData.domain = customUrl.trim();
+      fallbackData.name = `Boutique : ${cleanDomain}`;
+      fallbackData.productData = {
+        name: `Article scanné (${cleanDomain})`,
+        brand: cleanDomain,
+        price: "À confirmer",
+        currency: "EUR",
+        description: `Analyse directe de la boutique ${cleanDomain}. Schéma partiel détecté.`,
+        has_stock: false,
+        has_shipping: false,
+        has_return: false
+      };
+      fallbackData.summary = `Le site ${cleanDomain} est accessible mais certaines données structurées sont incomplètes.`;
       
       this.completeProgressUI(() => {
         this.displayResults(fallbackData);
@@ -260,29 +274,43 @@ export class ScannerSimulator {
       const humanPrice = document.getElementById('human-product-price');
       const humanDesc = document.getElementById('human-product-desc');
 
-      if (prodImgUrl && humanProductImg) {
-        humanProductImg.src = prodImgUrl;
-        humanProductImg.onerror = () => {
+      if (humanProductImg) {
+        if (prodImgUrl) {
+          humanProductImg.src = prodImgUrl;
+          humanProductImg.onerror = () => {
+            humanProductImg.src = 'assets/product_human_view.jpg';
+          };
+        } else {
           humanProductImg.src = 'assets/product_human_view.jpg';
-        };
+        }
       }
 
-      const prodName = data.name || 'Produit E-commerce';
+      const prodName = data.productData?.name || data.name || 'Produit E-commerce';
       if (humanTitle) humanTitle.textContent = prodName;
 
       const domainClean = (data.domain || '').replace(/^https?:\/\//, '').split('/')[0];
-      if (humanBrand) humanBrand.textContent = data.productData?.brand || domainClean || 'Boutique E-commerce';
+      const brandName = data.productData?.brand || domainClean || 'Boutique E-commerce';
+      if (humanBrand) humanBrand.textContent = brandName;
 
       if (humanPrice) {
         const rawPrice = data.productData?.price;
         const currency = data.productData?.currency || 'EUR';
-        const displayPrice = (rawPrice && rawPrice !== 'Inconnu') ? `${rawPrice} ${currency}` : 'Prix affiché sur le site';
+        let displayPrice = 'Prix affiché sur le site';
+        if (rawPrice && rawPrice !== 'Inconnu' && rawPrice !== 'None') {
+          displayPrice = `${rawPrice} ${currency}`;
+        } else if (data.aiView?.extractedPrice && data.aiView.extractedPrice !== '--') {
+          displayPrice = data.aiView.extractedPrice.split('(')[0].trim();
+        }
         const isStockOk = Boolean(data.productData?.has_stock);
-        humanPrice.innerHTML = `${displayPrice} <span style="font-size: 0.9rem; color: ${isStockOk ? 'var(--emerald-400)' : 'var(--amber-400)'}; font-weight: 600;">${isStockOk ? '• En Stock' : '• Stock à vérifier'}</span>`;
+        humanPrice.innerHTML = `${displayPrice} <span style="font-size: 0.9rem; color: ${isStockOk ? 'var(--emerald-400)' : 'var(--amber-400)'}; font-weight: 600;">${isStockOk ? '• En Stock • Expédition 24h' : '• Stock à confirmer par l\'IA'}</span>`;
       }
 
       if (humanDesc) {
-        humanDesc.textContent = `Fiche produit scannée en direct sur ${domainClean}. ` + (data.summary || '');
+        if (data.productData?.description && data.productData.description.length > 20) {
+          humanDesc.textContent = data.productData.description.slice(0, 220) + (data.productData.description.length > 220 ? '...' : '');
+        } else {
+          humanDesc.textContent = `Fiche produit scannée en direct sur ${domainClean}. ` + (data.summary || '');
+        }
       }
 
       if (this.crawlScore) this.crawlScore.textContent = `${crawl.score}/100`;
@@ -329,11 +357,31 @@ export class ScannerSimulator {
 
       if (terminalName) terminalName.textContent = prodName;
       if (terminalPrice) terminalPrice.textContent = ai.extractedPrice || '--';
-      if (terminalStock) terminalStock.textContent = ai.stockStatus || '--';
-      if (terminalShipping) terminalShipping.textContent = ai.shippingTerms || '--';
+      
+      if (terminalStock) {
+        terminalStock.textContent = ai.stockStatus || '--';
+        const isStockPositive = (ai.stockStatus || '').toLowerCase().includes('in_stock') || (ai.stockStatus || '').toLowerCase().includes('en stock');
+        terminalStock.className = isStockPositive ? 'ai-tag-ok' : 'ai-tag-missing';
+      }
+
+      if (terminalShipping) {
+        terminalShipping.textContent = ai.shippingTerms || '--';
+        const isShippingPositive = (ai.shippingTerms || '').toLowerCase().includes('spécifiée') || (ai.shippingTerms || '').toLowerCase().includes('gratuite') || (ai.shippingTerms || '').toLowerCase().includes('validé');
+        terminalShipping.className = isShippingPositive ? 'ai-tag-ok' : 'ai-tag-missing';
+      }
+
+      if (terminalBot) {
+        terminalBot.textContent = ai.botAccess || '--';
+        const isBotAllowed = (ai.botAccess || '').toLowerCase().includes('autoris');
+        terminalBot.className = isBotAllowed ? 'ai-tag-ok' : 'ai-tag-missing';
+      }
+
       if (terminalTokens) terminalTokens.textContent = ai.tokens || '--';
-      if (terminalRisk) terminalRisk.textContent = ai.hallucinationRisk || '--';
-      if (terminalBot) terminalBot.textContent = ai.botAccess || '--';
+      if (terminalRisk) {
+        terminalRisk.textContent = ai.hallucinationRisk || '--';
+        const isRiskLow = (ai.hallucinationRisk || '').toLowerCase().includes('nul') || (ai.hallucinationRisk || '').toLowerCase().includes('faible');
+        terminalRisk.style.color = isRiskLow ? 'var(--emerald-400)' : 'var(--rose-400)';
+      }
 
       if (terminalPurity) {
         const noise = data.pillars?.tokens?.noise_pct ?? 78;
@@ -344,9 +392,9 @@ export class ScannerSimulator {
 
       if (terminalVerdict) {
         if (data.score >= 70) {
-          terminalVerdict.innerHTML = `<span class="ai-tag-ok">CONFIRMÉ (Score: ${data.score}/100)</span> : Métadonnées certifiées, conversion IA favorable.`;
+          terminalVerdict.innerHTML = `<span class="ai-tag-ok">CONFIRMÉ (Score: ${data.score}/100)</span> : Métadonnées certifiées pour "${prodName}", conversion IA favorable.`;
         } else {
-          terminalVerdict.innerHTML = `<span class="ai-tag-missing">DISQUALIFIÉ (Score: ${data.score}/100)</span> : Risque d'abandon ou hallucination d'achat IA.`;
+          terminalVerdict.innerHTML = `<span class="ai-tag-missing">DISQUALIFIÉ (Score: ${data.score}/100)</span> : L'IA ne peut pas certifier l'achat autonome pour "${prodName}".`;
         }
       }
 

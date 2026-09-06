@@ -2,9 +2,9 @@
    AGENTREADY - Main Application Orchestrator
    ========================================================================== */
 
-import { ScannerSimulator } from './scanner-simulator.js?v=2.6';
-import { SplitScreenViewer } from './split-screen.js?v=2.6';
-import { SIMULATOR_QUESTIONS, CODE_SNIPPETS } from './mock-data.js?v=2.6';
+import { ScannerSimulator } from './scanner-simulator.js?v=2.7';
+import { SplitScreenViewer } from './split-screen.js?v=2.7';
+import { SIMULATOR_QUESTIONS, CODE_SNIPPETS } from './mock-data.js?v=2.7';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Scanner & Split Viewer
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 8. Setup FAQ Accordion
   initFaqAccordion();
 
-  // 9. URL Deep Link (?url=...) or initial scan
+  // 9. URL Deep Link (?url=...)
   const urlParams = new URLSearchParams(window.location.search);
   const sharedUrl = urlParams.get('url');
 
@@ -42,11 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
       scanner.runScan(sharedUrl);
     }, 400);
-  } else {
-    // Auto-trigger initial scan after 600ms for instant WOW effect
-    setTimeout(() => {
-      scanner.runScanWithPreset('blind');
-    }, 600);
   }
 });
 
@@ -129,7 +124,7 @@ function initSimulatorTabs() {
         geminiApiKey: geminiKey || undefined
       };
 
-      const res = await fetch('http://127.0.0.1:8000/api/gemini/simulate-question', {
+      const res = await fetch('/api/gemini/simulate-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -348,7 +343,7 @@ function initPdfModal() {
           summary: 'Audit généré depuis AgentReady Scanner.'
         };
 
-        const res = await fetch('http://127.0.0.1:8000/api/report/pdf', {
+        const res = await fetch('/api/report/pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -502,7 +497,7 @@ function initGeminiModal() {
 
   const checkStatus = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/gemini/status');
+      const res = await fetch('/api/gemini/status');
       if (res.ok) {
         const data = await res.json();
         const currentSavedKey = localStorage.getItem('agentready_gemini_key') || '';
@@ -551,7 +546,7 @@ function initGeminiModal() {
       feedback.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test de connexion à Gemini 3.6 Flash en cours...';
 
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/gemini/test', {
+        const res = await fetch('/api/gemini/test', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ geminiApiKey: key })
@@ -571,7 +566,7 @@ function initGeminiModal() {
       } catch (err) {
         feedback.style.background = 'rgba(244, 63, 94, 0.15)';
         feedback.style.color = 'var(--rose-400)';
-        feedback.innerHTML = `❌ Erreur réseau : impossible de joindre le serveur local sur le port 8000.`;
+        feedback.innerHTML = `❌ Erreur réseau : impossible de joindre le serveur d'API.`;
       }
     });
   }

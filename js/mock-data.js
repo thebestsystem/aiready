@@ -12,6 +12,16 @@ export const AUDIT_PRESETS = {
     statusLabel: "Agent Blind (Inaudible pour l'IA)",
     statusBadgeClass: "badge-blind",
     summary: "Ce site bloque les crawlers IA via Cloudflare WAF, souffre d'un balisage Schema.org incomplet et oblige les LLMs à dépenser +5 800 tokens par analyse, provoquant 40% de réponses hallucinées.",
+    productData: {
+      name: "MyStore Vintage NC-700 (Shopify Brut)",
+      brand: "MyStore Vintage",
+      price: "249.00",
+      currency: "EUR",
+      description: "Fiche produit type Shopify non optimisée : microdonnées JSON-LD absentes, variantes bloquées en JS et balisage WAF bloquant.",
+      has_stock: false,
+      has_shipping: false,
+      has_return: false
+    },
     pillars: {
       crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué / CSR", label: "Crawl & Bots Access" },
       schema: { score: 30, max: 100, weight: "25%", status: "Incomplet", label: "Schema.org / JSON-LD" },
@@ -32,13 +42,23 @@ export const AUDIT_PRESETS = {
 
   ready: {
     domain: "sonus-audio.com/products/nc700-matte-black",
-    name: "Sonus Audio (Optimisé AgentReady)",
+    name: "Sonus Audio NC-700 (Optimisé AgentReady)",
     image: "assets/product_human_view.jpg",
     score: 96,
     status: "ready",
     statusLabel: "Agent Ready (Parfaitement Optimisé)",
     statusBadgeClass: "badge-ready",
     summary: "Fiche produit modèle. Données Schema.org 100% validées, latence de crawl < 210ms, tokens optimisés (780 tokens/fiche), fichier llms.txt certifié et serveur MCP actif pour l'achat autonome.",
+    productData: {
+      name: "Sonus NC-700 Matte Black (Certifié)",
+      brand: "Sonus Audio Systems",
+      price: "249.00",
+      currency: "EUR",
+      description: "Casque supra-aural premium avec réduction active du bruit adaptative, transducteurs 40mm en titane et 40 heures d'autonomie avec recharge rapide USB-C.",
+      has_stock: true,
+      has_shipping: true,
+      has_return: true
+    },
     pillars: {
       crawl: { score: 98, max: 100, weight: "20%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
       schema: { score: 96, max: 100, weight: "25%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
@@ -59,13 +79,23 @@ export const AUDIT_PRESETS = {
 
   friction: {
     domain: "urban-streetwear.co/products/hoodie-heavyweight-grey",
-    name: "Urban Streetwear Co (WooCommerce Standard)",
-    image: "assets/product_human_view.jpg",
+    name: "Urban Streetwear - Hoodie Heavyweight Gris (WooCommerce)",
+    image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80",
     score: 64,
     status: "friction",
     statusLabel: "Agent Friction (Données partielles)",
     statusBadgeClass: "badge-friction",
     summary: "Le site est accessible mais manque d'attributs critiques : la politique de retour n'est pas structurée et le stock temps réel n'est pas exposé aux robots.",
+    productData: {
+      name: "Hoodie Heavyweight Gris 450 GSM",
+      brand: "Urban Streetwear Co",
+      price: "79.00",
+      currency: "EUR",
+      description: "Sweat à capuche molletonné coupe oversize 450 GSM en coton biologique peigné avec finitions bord-côte renforcées.",
+      has_stock: true,
+      has_shipping: false,
+      has_return: false
+    },
     pillars: {
       crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
       schema: { score: 60, max: 100, weight: "25%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
