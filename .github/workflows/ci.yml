@@ -1,0 +1,37 @@
+name: CI Suite
+
+# Exécute automatiquement la suite de tests (unittest, 14 tests) à chaque
+# push/PR sur n'importe quelle branche — vérification de non-régression continue.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite (unittest discovery)
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Compile sanity (server & tests importable)
+        run: python -m py_compile server.py tests/test_e2e_pipeline.py
