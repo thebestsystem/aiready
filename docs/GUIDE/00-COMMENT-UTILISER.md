@@ -4,6 +4,8 @@
 > **Exécutant :** Extension Cline lancée À LA MAIN par l'utilisateur dans **Antigravity** sur son PC.
 > **Canal :** branche Git `guide/` (moi) ⟷ branche Git `wip/` (Antigravity) sur le repo `github.com/thebestsystem/aiready`.
 
+> 🔄 **MàJ 2026-09-06 (consolidation) :** depuis la livraison TACHE-03 + bouclage prod, le repo fonctionne sur une **branche `main` unique**. Les TACHE-01/02/03 sont livrées et vérifiées en ligne ; le protocole guide↔wip ci-dessous reste documenté à titre d'archivage (le backlog actif est suivi dans `02-ROADMAP-EXECUTION.md`).
+
 ---
 
 ## 🧭 Division des rôles (IMPORTANT — à relire à chaque tâche)

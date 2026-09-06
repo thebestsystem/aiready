@@ -21,7 +21,7 @@ Vu la stratégie **semi-concierge/high-ticket d'abord** (J0–J60) explicitée d
 |---|-----|-----------|:--------:|:------:|
 | A1 | **Rate-limit anti-abus** sur `/api/scan` + simulateur | `TACHE-01-ratelimit.md` (`P1-3`) | Haute | ✅ TACHE-01 (8/8 tests, livrée sur `main`) |
 | A2 | **Verrouillage durée/limites scanner** (timeouts, taille domaine, URL non-HTML) | `TACHE-02-scanner-hardening.md` | Moyenne | ✅ TACHE-02 (14/14 tests, livrée sur `main`) |
-| A3 | **Bouclage prod réel** : vérifier déploiement Railway + variables d'env + premier scan de démo "client-ready" | à découper (requiert accès déployeur) | Haute | ⏳ bloqué accès |
+| A3 | **Bouclage prod réel** : vérifier déploiement Railway + variables d'env + premier scan de démo "client-ready" | validation live `aiready-production-a6c0.up.railway.app` | Haute | ✅ Fait (2026-09-06) : prod = `main` (TACHE-01/02/03 présentes à l'édition). ⚠️ Limite identifiée : rate-limit **mono-processus** — en multi-réplicas Railway les 429 sont intermittents (test 40 req → 26× 429). Migration **Redis partagé** à faire en P2. |
 | A4 | **UX erreurs backend explicites** (4xx/5xx affichées au lieu d'un faux fallback friction + transparence mode démo) | `PRD` note d'installation front | Moyenne | ✅ TACHE-03 (14/14 tests, livrée sur `main`) |
 
 ## 🟠 Famille B — Monétisation P2 (après validation du manuel)
