@@ -18,6 +18,7 @@ ENV/
 # Temporary test outputs & local database
 leads.csv
 test_report.pdf
+*.pdf
 *.log
 
 # IDE & Editor artifacts

@@ -44,6 +44,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 
+from lead_sink import dispatch_lead
+
 app = FastAPI(
     title="AgentReady API",
     description="Moteur d'audit et de préparation au commerce agentique",
@@ -718,8 +720,8 @@ async def scan_url(req: ScanRequest):
         else:
             proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
     else:
-        proto_score = 10
-        proto_details.append("Fichier /.well-known/llms.txt introuvable")
+        proto_score = 5
+        proto_details.append("Fichier /.well-known/llms.txt introuvable (Manifeste non configuré)")
         proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
 
     proto_score = max(5, min(100, proto_score))
@@ -854,7 +856,7 @@ async def scan_url(req: ScanRequest):
             "proto": PillarScore(
                 score=proto_score,
                 weight="15%",
-                status="llms.txt Conforme" if proto_score >= 70 else ("Partiel" if proto_score >= 35 else "Absent"),
+                status="llms.txt Conforme" if proto_score >= 70 else ("Partiel" if proto_score >= 35 else "Non configuré"),
                 label="Protocoles (llms.txt / MCP)",
                 details=proto_details
             )
@@ -970,26 +972,8 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
         "model": "Mode déterministe (Entrez une clé Gemini pour l'IA en direct)"
     }
 
-LEADS_FILE = os.path.join(os.path.dirname(__file__), "leads.csv")
-
-def save_lead(email: str, domain: str, name: str, score: int, status: str, risk: str) -> None:
-    file_exists = os.path.exists(LEADS_FILE)
-    try:
-        with open(LEADS_FILE, "a", newline="", encoding="utf-8-sig") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["Date", "Email", "URL_Boutique", "Nom_Produit", "Score", "Statut", "Risque_Hallucination"])
-            writer.writerow([
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                email.strip(),
-                domain.strip(),
-                name.strip(),
-                score,
-                status.strip(),
-                risk.strip()
-            ])
-    except Exception as e:
-        print("Erreur sauvegarde lead:", e)
+def save_lead(email: str, domain: str, name: str, score: int, status: str, risk: str, source: str = "scanner") -> Dict[str, bool]:
+    return dispatch_lead(email, domain, name, score, status, risk, source)
 
 def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None) -> bytes:
     if not REPORTLAB_AVAILABLE:
@@ -1182,6 +1166,7 @@ class LeadRequest(BaseModel):
     score: int = 50
     status: str = "Agent Friction"
     risk: str = "MOYEN"
+    source: str = "scanner"
 
 class PdfReportRequest(BaseModel):
     email: str
@@ -1189,8 +1174,8 @@ class PdfReportRequest(BaseModel):
 
 @app.post("/api/lead")
 def record_lead(req: LeadRequest):
-    save_lead(req.email, req.domain, req.name, req.score, req.status, req.risk)
-    return {"ok": True, "message": "Lead enregistré avec succès"}
+    sink_res = save_lead(req.email, req.domain, req.name, req.score, req.status, req.risk, req.source)
+    return {"ok": True, "message": "Lead enregistré avec succès", "sink": sink_res}
 
 @app.post("/api/report/pdf")
 async def generate_and_download_pdf(req: PdfReportRequest):
@@ -1202,8 +1187,8 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     status_label = data.get("statusLabel", "Audit")
     risk = data.get("aiView", {}).get("hallucinationRisk", "MOYEN")
 
-    # 1. Sauvegarder automatiquement le prospect dans leads.csv
-    save_lead(email, domain, name, score, status_label, risk)
+    # 1. Sauvegarder de façon résiliente le prospect (Postgres + Slack + Backup CSV)
+    save_lead(email, domain, name, score, status_label, risk, source="pdf_modal")
 
     # 2. Générer le document PDF
     try:

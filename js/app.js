@@ -380,7 +380,7 @@ function initPdfModal() {
 
       } catch (err) {
         console.error('Erreur génération PDF :', err);
-        alert(`Échec du téléchargement du PDF (${err.message}). Vos informations ont toutefois été prises en compte.`);
+        alert(`Échec de la génération du rapport (${err.message}). Veuillez vérifier votre connexion et réessayer.`);
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
