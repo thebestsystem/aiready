@@ -445,6 +445,68 @@ class TestE2EPipeline(unittest.TestCase):
 
         server._scan_limiter.reset()
 
+    # ------------------------------------------------------------------
+    # Lot P1-Sécurité — SSRF, validation email & rate-limit lead/report
+    # ------------------------------------------------------------------
+    def test_15_scan_rejects_ssrf_targets(self):
+        """Étape 15 (P1-Sécu) : fetch interdit vers réseaux privés/réservés (SSRF)."""
+        from unittest.mock import patch, AsyncMock  # noqa : lève si un fetch est tenté
+
+        server._scan_limiter.reset()
+
+        ssrf_urls = [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://127.0.0.1:5432/",
+            "http://10.0.0.1/private",
+            "http://192.168.1.10/internal",
+            "http://localhost:8000/api/health",
+            "http://[::1]/",
+        ]
+        boom = AsyncMock(side_effect=AssertionError("Fetch réseau tenté malgré SSRF blocage"))
+        with patch("httpx.AsyncClient.get", boom):
+            for url in ssrf_urls:
+                res = self.client.post(
+                    "/api/scan",
+                    json={"url": url},
+                    headers={"X-Forwarded-For": f"10.99.{abs(hash(url)) % 200}.{len(url) % 200}"},
+                )
+                self.assertEqual(res.status_code, 400, f"URL '{url}' devrait être bloquée (SSRF)")
+                self.assertIn("SSRF", res.json()["detail"])
+
+        server._scan_limiter.reset()
+
+    def test_16_lead_validates_email_and_is_rate_limited(self):
+        """Étape 16 (P1-Sécu) : /api/lead exige un email valide et est limité par IP."""
+        server._lead_limiter.reset()
+
+        # 1. Email invalide -> 400, pas d'enregistrement
+        res_bad = self.client.post("/api/lead", json={
+            "email": "pas-un-email", "domain": "boutique.fr"},
+            headers={"X-Forwarded-For": "203.0.113.9"})
+        self.assertEqual(res_bad.status_code, 400)
+        self.assertIn("Email", res_bad.json()["detail"])
+
+        # 2. Email valide -> 200
+        res_ok = self.client.post("/api/lead", json={
+            "email": "p1_sec@boutique.fr", "domain": "boutique.fr"},
+            headers={"X-Forwarded-For": "203.0.113.9"})
+        self.assertEqual(res_ok.status_code, 200)
+
+        # 3. Dépassement de la limite (LEAD_RATE_LIMIT=20 par défaut) -> 429
+        ok = 0
+        for i in range(server._lead_limiter.limit + 2):
+            r = self.client.post("/api/lead", json={
+                "email": f"p1_sec{i}@boutique.fr", "domain": "boutique.fr"},
+                headers={"X-Forwarded-For": "203.0.113.10"})
+            if r.status_code == 200:
+                ok += 1
+            else:
+                self.assertEqual(r.status_code, 429)
+        self.assertLessEqual(ok, server._lead_limiter.limit)
+
+        server._lead_limiter.reset()
+
+
 
 if __name__ == "__main__":
     unittest.main()

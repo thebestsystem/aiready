@@ -11,6 +11,8 @@ import csv
 import io
 import json
 import asyncio
+import socket
+import ipaddress
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from urllib.parse import urlparse, urljoin
@@ -238,6 +240,25 @@ def _sim_rate_limit(request: Request) -> None:
     _enforce_rate_limit(request, _sim_limiter, "/api/gemini/simulate-question")
 
 
+# Rate-limiting sur les endpoints à coût CPU/collecteurs (TACHE sécurisation anti-bot)
+_LEAD_RATE_LIMIT = _int_env_clamped("LEAD_RATE_LIMIT", "20", 1, 10_000)
+_LEAD_RATE_WINDOW_SECONDS = _int_env_clamped("LEAD_RATE_WINDOW_SECONDS", "60", 1, 86_400)
+_REPORT_RATE_LIMIT = _int_env_clamped("REPORT_RATE_LIMIT", "10", 1, 10_000)
+_REPORT_RATE_WINDOW_SECONDS = _int_env_clamped("REPORT_RATE_WINDOW_SECONDS", "60", 1, 86_400)
+_lead_limiter = _SlidingWindowRateLimiter(_LEAD_RATE_LIMIT, _LEAD_RATE_WINDOW_SECONDS)
+_report_limiter = _SlidingWindowRateLimiter(_REPORT_RATE_LIMIT, _REPORT_RATE_WINDOW_SECONDS)
+
+
+def _lead_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : anti-spam de la capture de lead."""
+    _enforce_rate_limit(request, _lead_limiter, "/api/lead")
+
+
+def _report_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : anti-abus de génération PDF (coût CPU)."""
+    _enforce_rate_limit(request, _report_limiter, "/api/report/pdf")
+
+
 class ScanRequest(BaseModel):
     url: str
     geminiApiKey: Optional[str] = None
@@ -304,8 +325,13 @@ def normalize_url(raw_url: str) -> str:
     if not (lower.startswith("http://") or lower.startswith("https://")):
         raise HTTPException(status_code=400, detail="URL non valide : seuls les liens http:// et https:// sont acceptés.")
     parsed = urlparse(raw)
-    host = (parsed.netloc or "").lower()
-    is_sane_host = host == "localhost" or ("." in host and len(host) > 2)
+    host = (parsed.hostname or "").lower()
+    # parsed.hostname dégraisse déjà les crochets IPv6 ([::1] -> "::1").
+    has_dot = "." in host
+    is_ipv6_literal = ":" in host
+    is_sane_host = bool(host) and (
+        host == "localhost" or has_dot or is_ipv6_literal
+    )
     if not is_sane_host:
         raise HTTPException(status_code=400, detail="URL invalide : hôte manquant.")
     return raw
@@ -318,6 +344,107 @@ def _decode_utf8(raw: bytes) -> str:
     except Exception:
         return ""
 
+
+# Validation d'email légère (RFC proche mais permissive pour la conversion) — ss dépendance.
+_EMAIL_RE = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+)
+
+
+def validate_email(email: str) -> bool:
+    """Retourne True si la chaîne est une adresse email plausible (max 254 chars)."""
+    if not email or len(email) > 254:
+        return False
+    if not _EMAIL_RE.match(email):
+        return False
+    # Domain routable : au moins un point + pas d'espace/coin.
+    local, _, dom = email.rpartition("@")
+    return bool(local) and bool(dom) and "." in dom
+
+
+
+# ------------------------------------------------------------------------
+# SSRF guard (P1-Sécurité) — empêche le scanner de joindre des réseaux internes.
+# Couche 1 : structurelle, sans réseau (IP littérale privée, hostname réservé).
+# Couche 2 : résolution DNS optionnelle-anti-fausse-demande (échoue-grace => neutre).
+# ------------------------------------------------------------------------
+_PRIVATE_NETWORKS_REASONS = {
+    "localhost": "hôte réservé (localhost)",
+    "localhost.": "hôte réservé (localhost.)",
+}
+_RESERVED_HOST_SUFFIXES = (".local", ".internal", ".localhost", ".home.arpa")
+_RESERVED_HOST_PREFIXES = ("metadata.", "kubernetes.", "kube-", "rancher-meta")
+
+
+def _is_nonpublic_ip(ip_str: str) -> bool:
+    """True si l'IP (v4/v6) n'est pas une IP publique routable (privée/réservée/etc)."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return True  # illisible -> on considère non sûr
+    return not ip.is_global or ip.is_private or ip.is_loopback or ip.is_link_local \
+        or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+
+
+def _structural_ssrf_reason(host: str) -> Optional[str]:
+    """Raison (message) si le host est refusable sans réseau, sinon None."""
+    h = host.strip().lower()
+    if h in _PRIVATE_NETWORKS_REASONS:
+        return _PRIVATE_NETWORKS_REASONS[h]
+    if h.startswith(_RESERVED_HOST_PREFIXES):
+        return "hôte réservé (metadata/kube)"
+    if h.endswith(_RESERVED_HOST_SUFFIXES):
+        return "hôte réservé (réseau interne)"
+    # IP littérale ?
+    # netloc éventuel avec [] pour IPv6 ou port ; on retire tout ':' pour l'IPv6 d'abord
+    candidate = h
+    if candidate.startswith("["):
+        # ipv6 littéral [::{...}]
+        inner = candidate[1:candidate.find("]")] if "]" in candidate else candidate[1:]
+        try:
+            return None if ipaddress.ip_address(inner).is_global else "adresse IPv6 réservée"
+        except ValueError:
+            pass
+    if ":" in candidate and candidate.count(":") == 1:
+        candidate = candidate.split(":", 1)[0]  # retire port pour IPv4 hôte:port
+    try:
+        ip = ipaddress.ip_address(candidate) if candidate else None
+    except ValueError:
+        ip = None
+    if ip is not None:
+        if _is_nonpublic_ip(candidate):
+            return "adresse IP réservée/privée (SSRF)"
+        return None
+    return None
+
+
+def _resolve_first_ip(host: str) -> Optional[str]:
+    """Résout le hostname (socket) et retourne la première IP, ou None si KO."""
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except Exception:
+        return None
+    for fam, _, _, _, sockaddr in infos:
+        ip = sockaddr[0] if sockaddr else None
+        if ip:
+            return ip
+    return None
+
+
+async def _assert_scan_target_ok(url: str) -> None:
+    """Élève HTTPException(400) si la cible de scan est un réseau interne (SSRF)."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    reason = _structural_ssrf_reason(host)
+    if reason:
+        raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : {reason}.")
+    # Couche DNS (seulement hôte non littéral) + tolérant si résolution impossible.
+    resolved = await asyncio.to_thread(_resolve_first_ip, host) if host else None
+    if resolved is None:
+        return  # DNS indisponible → on laisse httpx décider (démo/test)
+    r = _structural_ssrf_reason(resolved)
+    if r:
+        raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {r}.")
 
 async def _read_page_bounded(resp: httpx.Response, limit: int) -> bytes:
     """Lit le corps d'une réponse httpx sans jamais conserver plus de `limit` octets.
@@ -852,6 +979,10 @@ async def scan_url(req: ScanRequest):
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split("/")[0]
 
+    # Garde SSRF (P1-Sécurité) : refuse les cibles vers des réseaux internes
+    # (IP privées/réservées, localhost, metadata) AVANT toute connexion réseau.
+    await _assert_scan_target_ok(url)
+
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=SCAN_FETCH_TIMEOUT_SECONDS) as client:
         # 1. Fetch robots.txt & llms.txt (déjà typés / bornés) de façon indépendante.
         # On les lance en tâches réelles afin de pouvoir annuler proprement en cas de
@@ -1331,15 +1462,20 @@ class PdfReportRequest(BaseModel):
     email: str
     auditData: Dict[str, Any]
 
-@app.post("/api/lead")
+@app.post("/api/lead", dependencies=[Depends(_lead_rate_limit)])
 def record_lead(req: LeadRequest):
-    sink_res = save_lead(req.email, req.domain, req.name, req.score, req.status, req.risk, req.source)
+    email = (req.email or "").strip()
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="Email invalide : veuillez fournir une adresse valide (ex. john@boutique.fr).")
+    sink_res = save_lead(email, req.domain, req.name, req.score, req.status, req.risk, req.source)
     return {"ok": True, "message": "Lead enregistré avec succès", "sink": sink_res}
 
-@app.post("/api/report/pdf")
+@app.post("/api/report/pdf", dependencies=[Depends(_report_rate_limit)])
 async def generate_and_download_pdf(req: PdfReportRequest):
     data = req.auditData or {}
-    email = req.email.strip()
+    email = (req.email or "").strip()
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="Email invalide : impossible de générer le rapport sans adresse valide.")
     domain = data.get("domain", "ecommerce")
     name = data.get("name", "Produit")
     score = data.get("score", 50)
