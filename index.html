@@ -41,7 +41,7 @@
         <ul class="nav-menu">
           <li><a href="#scanner" class="nav-link">Scanner</a></li>
           <li><a href="#split-screen" class="nav-link">Human vs AI</a></li>
-          <li><a href="#pillars" class="nav-link">3 Piliers V1</a></li>
+          <li><a href="#pillars" class="nav-link">5 Piliers d'Audit</a></li>
           <li><a href="#autofix" class="nav-link">Auto-Fix & Protocoles</a></li>
           <li><a href="#simulator" class="nav-link">Simulateur (Aperçu)</a></li>
           <li><a href="#pricing" class="nav-link">Tarifs</a></li>
@@ -254,30 +254,40 @@
             </div>
           </div>
 
-          <!-- 3. PILIERS DE SCORING DÉTERMINISTES V1 (Confirmation) -->
+          <!-- 3. PILIERS DE SCORING DÉTERMINISTES (5 Piliers PRD) -->
           <div style="margin-bottom: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
               <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
-                Détail des 3 Piliers Déterministes (Zéro Juge LLM · 100% Reproductible)
+                Détail des 5 Piliers d'Audit (Méthodologie PRD · 100% Déterministe)
               </span>
-              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Crawl 30% · Schema 40% · Tokens 30%</span>
+              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Crawl 20% · Schema 25% · Tokens 20% · Simulation 20% · Protocoles 15%</span>
             </div>
 
-            <div class="pillars-mini-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="pillars-mini-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">1. Crawl & Bot Access</div>
+                <div class="pillar-mini-title">1. Crawl (20%)</div>
                 <div class="pillar-mini-score" id="pillar-score-crawl">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-crawl">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">2. Schema.org / JSON-LD</div>
+                <div class="pillar-mini-title">2. Schema (25%)</div>
                 <div class="pillar-mini-score" id="pillar-score-schema">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-schema">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">3. Tokens & DOM</div>
+                <div class="pillar-mini-title">3. Tokens (20%)</div>
                 <div class="pillar-mini-score" id="pillar-score-tokens">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-tokens">--</div>
+              </div>
+              <div class="pillar-mini-card">
+                <div class="pillar-mini-title">4. Simulator (20%)</div>
+                <div class="pillar-mini-score" id="pillar-score-sim">--</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-sim">--</div>
+              </div>
+              <div class="pillar-mini-card">
+                <div class="pillar-mini-title">5. Protocoles (15%)</div>
+                <div class="pillar-mini-score" id="pillar-score-proto">--</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-proto">--</div>
               </div>
             </div>
           </div>
@@ -408,20 +418,20 @@
     <div class="container">
       
       <div class="section-header">
-        <span class="badge badge-cyan">Méthodologie Déterministe</span>
-        <h2 class="section-title">Les Piliers d'Évaluation <span class="gradient-text">AgentReady</span></h2>
+        <span class="badge badge-cyan">Méthodologie Déterministe PRD</span>
+        <h2 class="section-title">Les 5 Piliers d'Évaluation <span class="gradient-text">AgentReady</span></h2>
         <p class="lead">
-          Le score V1 s'appuie à <strong>100% sur 3 piliers déterministes et reproductibles</strong> (sans aléa LLM). Les piliers 4 & 5 de simulation et transaction directe sont programmés pour la V1.1.
+          Le score global s'appuie sur une <strong>pondération rigoureuse sur 5 piliers déterministes et reproductibles</strong> (total 100%), combinant conformité structurelle, économie de tokens et certitude transactionnelle.
         </p>
       </div>
 
       <div class="pillars-grid">
         
-        <!-- Pilier 1 (V1) -->
+        <!-- Pilier 1 (20%) -->
         <div class="pillar-card" style="border-color: rgba(56, 189, 248, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-shield-virus"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--cyan-400);">V1 • Poids : 30%</span>
+            <span class="pillar-weight-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--cyan-400);">Poids : 20%</span>
           </div>
           <h3 class="pillar-title">1. Crawl & Bot Accessibility</h3>
           <p class="pillar-desc">
@@ -434,11 +444,11 @@
           </ul>
         </div>
 
-        <!-- Pilier 2 (V1) -->
+        <!-- Pilier 2 (25%) -->
         <div class="pillar-card" style="border-color: rgba(16, 185, 129, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-code"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-400);">V1 • Poids : 40%</span>
+            <span class="pillar-weight-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-400);">Poids : 25%</span>
           </div>
           <h3 class="pillar-title">2. Schema.org & JSON-LD Déterministe</h3>
           <p class="pillar-desc">
@@ -451,11 +461,11 @@
           </ul>
         </div>
 
-        <!-- Pilier 3 (V1) -->
+        <!-- Pilier 3 (20%) -->
         <div class="pillar-card" style="border-color: rgba(168, 85, 247, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-feather-alt"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(168, 85, 247, 0.15); color: var(--violet-400);">V1 • Poids : 30%</span>
+            <span class="pillar-weight-badge" style="background: rgba(168, 85, 247, 0.15); color: var(--violet-400);">Poids : 20%</span>
           </div>
           <h3 class="pillar-title">3. Pureté Sémantique & Tokens</h3>
           <p class="pillar-desc">
@@ -468,37 +478,37 @@
           </ul>
         </div>
 
-        <!-- Pilier 4 (Roadmap V1.1) -->
-        <div class="pillar-card" style="opacity: 0.75; border-style: dashed;">
+        <!-- Pilier 4 (20%) -->
+        <div class="pillar-card" style="border-color: rgba(245, 158, 11, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-brain"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">Roadmap V1.1</span>
+            <span class="pillar-weight-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--amber-400);">Poids : 20%</span>
           </div>
-          <h3 class="pillar-title">4. AI Buyer Simulator (Gemini)</h3>
+          <h3 class="pillar-title">4. AI Buyer Simulator (Déterministe)</h3>
           <p class="pillar-desc">
-            Simulation en direct de questions d'achat posées par les internautes à un agent conversationnel pour détecter les risques d'hallucination.
+            Évaluation standardisée de la certitude transactionnelle : prix garanti, politique de retour, délais de livraison et stock disponible pour éliminer les risques d'hallucination.
           </p>
           <ul class="pillar-checklist">
-            <li><i class="fas fa-clock"></i> Simulation autonome par scénarios</li>
-            <li><i class="fas fa-clock"></i> Mesure de l'hésitation avant panier</li>
-            <li><i class="fas fa-clock"></i> Détection d'arbitrage défavorable</li>
+            <li><i class="fas fa-check"></i> 0 Hallucination sur les prix et frais</li>
+            <li><i class="fas fa-check"></i> Conditions de retour et garantie validées</li>
+            <li><i class="fas fa-check"></i> Décision d'achat autonome immédiate</li>
           </ul>
         </div>
 
-        <!-- Pilier 5 (Roadmap V1.1) -->
-        <div class="pillar-card" style="opacity: 0.75; border-style: dashed;">
+        <!-- Pilier 5 (15%) -->
+        <div class="pillar-card" style="border-color: rgba(99, 102, 241, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-network-wired"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--text-muted);">Roadmap V1.1</span>
+            <span class="pillar-weight-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--indigo-400);">Poids : 15%</span>
           </div>
-          <h3 class="pillar-title">5. Protocoles Agentiques (MCP)</h3>
+          <h3 class="pillar-title">5. Protocoles Agentiques (llms.txt & MCP)</h3>
           <p class="pillar-desc">
-            Fichier standard <code>/.well-known/llms.txt</code> et connecteur <strong>Model Context Protocol (MCP)</strong> pour la transaction directe machine-to-machine.
+            Présence du manifeste standard <code>/.well-known/llms.txt</code> et des directives de serveurs <strong>Model Context Protocol (MCP)</strong> pour la transaction directe machine-to-machine.
           </p>
           <ul class="pillar-checklist">
-            <li><i class="fas fa-check"></i> Générateur <code>llms.txt</code> disponible en Auto-Fix</li>
-            <li><i class="fas fa-clock"></i> Serveur MCP hébergé prêt à l'emploi</li>
-            <li><i class="fas fa-clock"></i> Endpoint tokenisé pour checkout sécurisé</li>
+            <li><i class="fas fa-check"></i> Fichier <code>/.well-known/llms.txt</code> détecté</li>
+            <li><i class="fas fa-check"></i> Générateur <code>llms.txt</code> en Auto-Fix</li>
+            <li><i class="fas fa-check"></i> Spécifications de serveur MCP prêtes à l'emploi</li>
           </ul>
         </div>
 

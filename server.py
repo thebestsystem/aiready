@@ -39,6 +39,7 @@ except ImportError:
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
@@ -699,24 +700,37 @@ async def scan_url(req: ScanRequest):
         "geminiLive": False
     }
 
-    # PILIER 5 : Protocoles Agentiques (llms.txt & MCP)
+    # PILIER 5 : Protocoles Agentiques (llms.txt & MCP) - Grille dégradée non-abrupte
     proto_score = 0
     proto_details = []
     if llms_info["found"]:
-        proto_score += 70
-        proto_details.append(f"Fichier standard {llms_info['path']} détecté !")
+        if llms_info["path"] == "/.well-known/llms.txt":
+            proto_score = 70
+            proto_details.append(f"Fichier standard {llms_info['path']} détecté !")
+        else:
+            proto_score = 45
+            proto_details.append(f"Fichier {llms_info['path']} détecté (chemin alternatif, /.well-known/ recommandé)")
+
+        llms_content = (llms_info.get("content") or "").lower()
+        if any(kw in llms_content for kw in ["mcp", "endpoint", "api", "tools", "openapi"]):
+            proto_score += 30
+            proto_details.append("Directives d'endpoints / MCP détectées dans le manifeste")
+        else:
+            proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
     else:
+        proto_score = 10
         proto_details.append("Fichier /.well-known/llms.txt introuvable")
+        proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
 
-    proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
-    proto_score = max(5, proto_score)
+    proto_score = max(5, min(100, proto_score))
 
-    # CALCUL DU SCORE GLOBAL V1 DÉTERMINISTE PUR (0 Variance, 0 LLM Judge)
-    # 1. Crawl & Access (30%) + 2. Schema.org / JSON-LD (40%) + 3. Pureté Sémantique & Tokens (30%)
+    # CALCUL DU SCORE GLOBAL CONFORME PRD (5 Piliers Déterministes : 20/25/20/20/15 = 100%)
     total_score = int(
-        (crawl_score * 0.30) +
-        (schema_res["score"] * 0.40) +
-        (semantic_res["score"] * 0.30)
+        (crawl_score * 0.20) +
+        (schema_res["score"] * 0.25) +
+        (semantic_res["score"] * 0.20) +
+        (sim_res["score"] * 0.20) +
+        (proto_score * 0.15)
     )
     total_score = max(5, min(100, total_score))
 
@@ -811,36 +825,36 @@ async def scan_url(req: ScanRequest):
         pillars={
             "crawl": PillarScore(
                 score=crawl_score,
-                weight="30%",
+                weight="20%",
                 status="Robots OK" if crawl_score >= 75 else "Friction / Bloqué",
                 label="Crawl & Bot Access",
                 details=crawl_details
             ),
             "schema": PillarScore(
                 score=schema_res["score"],
-                weight="40%",
+                weight="25%",
                 status=schema_res["status"],
                 label="Schema.org / JSON-LD",
                 details=schema_res["details"]
             ),
             "tokens": PillarScore(
                 score=semantic_res["score"],
-                weight="30%",
+                weight="20%",
                 status=semantic_res["status"],
                 label="Pureté Sémantique",
                 details=semantic_res["details"]
             ),
             "simulator": PillarScore(
                 score=sim_res["score"],
-                weight="Simulation",
+                weight="20%",
                 status=f"Risque {sim_res['hallucination_risk']}",
-                label="AI Buyer Simulator (Aperçu)",
+                label="AI Buyer Simulator (Déterministe)",
                 details=sim_res["details"]
             ),
             "proto": PillarScore(
                 score=proto_score,
-                weight="Protocoles",
-                status="llms.txt Présent" if proto_score >= 50 else "Absent",
+                weight="15%",
+                status="llms.txt Conforme" if proto_score >= 70 else ("Partiel" if proto_score >= 35 else "Absent"),
                 label="Protocoles (llms.txt / MCP)",
                 details=proto_details
             )
@@ -1213,9 +1227,31 @@ async def generate_and_download_pdf(req: PdfReportRequest):
 def health():
     return {"status": "ok", "service": "AgentReady Audit Engine", "version": "1.0.0"}
 
-# Servir directement le frontend statique (index.html, css, js) depuis FastAPI
-_static_dir = os.path.dirname(os.path.abspath(__file__))
-app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
+# Servir les assets publics (/css, /js, /assets) et index.html sans exposer le répertoire racine
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+
+_css_dir = os.path.join(_base_dir, "css")
+if os.path.isdir(_css_dir):
+    app.mount("/css", StaticFiles(directory=_css_dir), name="css")
+
+_js_dir = os.path.join(_base_dir, "js")
+if os.path.isdir(_js_dir):
+    app.mount("/js", StaticFiles(directory=_js_dir), name="js")
+
+_assets_dir = os.path.join(_base_dir, "assets")
+if os.path.isdir(_assets_dir):
+    app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets")
+
+@app.get("/")
+def serve_root():
+    index_file = os.path.join(_base_dir, "index.html")
+    if os.path.exists(index_file):
+        return FileResponse(index_file, media_type="text/html")
+    raise HTTPException(status_code=404, detail="index.html introuvable")
+
+@app.get("/index.html")
+def serve_index_html():
+    return serve_root()
 
 if __name__ == "__main__":
     import uvicorn

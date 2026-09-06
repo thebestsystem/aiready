@@ -73,11 +73,11 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 45, max: 100, weight: "30%", status: "Bloqué / WAF Challenge", label: "Crawl & Bots Access" },
-      schema: { score: 30, max: 100, weight: "40%", status: "Incomplet (0 Offer)", label: "Schema.org / JSON-LD" },
-      tokens: { score: 40, max: 100, weight: "30%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
-      simulator: { score: 35, max: 100, weight: "Simulation", status: "Hallucinations détectées", label: "AI Buyer Simulator (Aperçu)" },
-      proto: { score: 0, max: 100, weight: "Protocoles", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué / WAF Challenge", label: "Crawl & Bots Access" },
+      schema: { score: 30, max: 100, weight: "25%", status: "Incomplet (0 Offer)", label: "Schema.org / JSON-LD" },
+      tokens: { score: 40, max: 100, weight: "20%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
+      simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "AI Buyer Simulator (Déterministe)" },
+      proto: { score: 10, max: 100, weight: "15%", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "5 840 tokens",
@@ -90,8 +90,8 @@ export const AUDIT_PRESETS = {
   },
 
   ready: {
-    domain: "sonus-audio.com/products/nc700-matte-black",
-    name: "Sonus Audio NC-700 (Optimisé AgentReady)",
+    domain: "sonus-audio.store/products/nc-700-black",
+    name: "Sonus NC-700 Matte Black (Shopify)",
     image: "assets/product_human_view.jpg",
     score: 96,
     status: "ready",
@@ -159,11 +159,11 @@ export const AUDIT_PRESETS = {
       has_return: true
     },
     pillars: {
-      crawl: { score: 98, max: 100, weight: "30%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
-      schema: { score: 96, max: 100, weight: "40%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
-      tokens: { score: 95, max: 100, weight: "30%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
-      simulator: { score: 98, max: 100, weight: "Simulation", status: "5/5 Exactitude (0 hallucination)", label: "AI Buyer Simulator (Aperçu)" },
-      proto: { score: 94, max: 100, weight: "Protocoles", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 98, max: 100, weight: "20%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
+      schema: { score: 96, max: 100, weight: "25%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
+      tokens: { score: 95, max: 100, weight: "20%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
+      simulator: { score: 98, max: 100, weight: "20%", status: "5/5 Exactitude (0 hallucination)", label: "AI Buyer Simulator (Déterministe)" },
+      proto: { score: 94, max: 100, weight: "15%", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "780 tokens (-86% de coût)",
@@ -179,7 +179,7 @@ export const AUDIT_PRESETS = {
     domain: "urban-streetwear.co/products/hoodie-heavyweight-grey",
     name: "Urban Streetwear - Hoodie Heavyweight Gris (WooCommerce)",
     image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80",
-    score: 64,
+    score: 61,
     status: "friction",
     statusLabel: "Agent Friction (Données partielles)",
     statusBadgeClass: "badge-friction",
@@ -244,11 +244,11 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 75, max: 100, weight: "30%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
-      schema: { score: 60, max: 100, weight: "40%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
-      tokens: { score: 68, max: 100, weight: "30%", status: "2 450 tokens", label: "Pureté Sémantique" },
-      simulator: { score: 62, max: 100, weight: "Simulation", status: "Réponses vagues sur retours", label: "AI Buyer Simulator (Aperçu)" },
-      proto: { score: 20, max: 100, weight: "Protocoles", status: "llms.txt partiel, pas de MCP", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
+      schema: { score: 60, max: 100, weight: "25%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
+      tokens: { score: 68, max: 100, weight: "20%", status: "2 450 tokens", label: "Pureté Sémantique" },
+      simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "AI Buyer Simulator (Déterministe)" },
+      proto: { score: 35, max: 100, weight: "15%", status: "llms.txt alternatif (/llms.txt)", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "2 450 tokens",
