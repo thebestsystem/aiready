@@ -173,6 +173,7 @@
 
 .scanner-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 1.25rem;
 }
@@ -635,6 +636,34 @@
   align-items: center;
   justify-content: center;
   transform: translateX(-50%);
+  outline: none;
+}
+
+.split-slider-handle:focus-visible .handle-button {
+  outline: 3px solid var(--cyan-400);
+  outline-offset: 4px;
+  transform: scale(1.15);
+  box-shadow: 0 0 35px var(--cyan-400);
+}
+
+.split-mobile-toggle {
+  display: none;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.split-mobile-toggle .btn {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  border-radius: var(--radius-full);
+}
+
+.split-mobile-toggle .btn.active {
+  background: linear-gradient(135deg, var(--cyan-500), #0284c7);
+  color: #ffffff;
+  border-color: var(--cyan-400);
+  box-shadow: 0 2px 10px var(--cyan-glow);
 }
 
 .handle-button {
@@ -1400,6 +1429,9 @@ pre code {
   .preset-chip {
     font-size: 0.75rem;
     padding: 0.35rem 0.65rem;
+  }
+  .split-mobile-toggle {
+    display: flex;
   }
   .split-viewer-container {
     height: 520px;

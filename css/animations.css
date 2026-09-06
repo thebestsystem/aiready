@@ -98,4 +98,18 @@
   .gauge-circle-fill {
     transition: none !important;
   }
+
+  .radar-beam {
+    display: none !important;
+    animation: none !important;
+  }
+
+  .pulse-dot,
+  .animate-float,
+  .animate-fade-in,
+  .animate-slide-up,
+  .text-shimmer,
+  .fa-spin {
+    animation: none !important;
+  }
 }

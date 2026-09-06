@@ -82,6 +82,14 @@ export class SplitScreenViewer {
     this.currentPercentage = clamped;
     this.aiSide.style.width = `${clamped}%`;
     this.handle.style.left = `${clamped}%`;
+    this.handle.setAttribute('aria-valuenow', Math.round(clamped));
+  }
+
+  syncVirtualTime() {
+    const clampedRatio = Math.max(-1, Math.min(1, (this.currentPercentage - this.center) / this.amplitude));
+    const angle = Math.asin(clampedRatio);
+    this.virtualTime = (angle / (Math.PI * 2)) * this.cycleDuration;
+    if (this.virtualTime < 0) this.virtualTime += this.cycleDuration;
   }
 
   initEvents() {
@@ -119,7 +127,50 @@ export class SplitScreenViewer {
       this.updatePosition(e.clientX);
     });
 
-    // 4. TACTILE (Smartphones & Tablettes)
+    // 4. ACCESSIBILITÉ CLAVIER (role="slider")
+    this.handle.addEventListener('keydown', (e) => {
+      let handled = false;
+      let newPct = this.currentPercentage;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        newPct = Math.max(0, this.currentPercentage - 5);
+        handled = true;
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        newPct = Math.min(100, this.currentPercentage + 5);
+        handled = true;
+      } else if (e.key === 'PageDown') {
+        newPct = Math.max(0, this.currentPercentage - 20);
+        handled = true;
+      } else if (e.key === 'PageUp') {
+        newPct = Math.min(100, this.currentPercentage + 20);
+        handled = true;
+      } else if (e.key === 'Home') {
+        newPct = 0;
+        handled = true;
+      } else if (e.key === 'End') {
+        newPct = 100;
+        handled = true;
+      }
+
+      if (handled) {
+        e.preventDefault();
+        this.isHovered = true;
+        this.stopAutoAnimation();
+        this.setPercentage(newPct);
+        this.syncVirtualTime();
+      }
+    });
+
+    this.handle.addEventListener('focus', () => {
+      this.isHovered = true;
+      this.stopAutoAnimation();
+    });
+
+    this.handle.addEventListener('blur', () => {
+      this.isHovered = false;
+      this.startAutoAnimation();
+    });
+
+    // 5. TACTILE (Smartphones & Tablettes)
     this.container.addEventListener('touchstart', () => {
       this.isHovered = true;
     }, { passive: true });
@@ -142,11 +193,47 @@ export class SplitScreenViewer {
       this.updatePosition(e.touches[0].clientX);
     }, { passive: true });
 
-    // 5. CLIC DIRECT DANS LE CADRE : Positionne la flèche instantanément
+    // 6. CLIC DIRECT DANS LE CADRE : Positionne la flèche instantanément
     this.container.addEventListener('click', (e) => {
       if (e.target.closest('#split-handle')) return;
       this.updatePosition(e.clientX);
     });
+
+    // 7. BOUTONS DE COMMUTATION RAPIDE (Mobile & Tablette)
+    const btnHuman = document.getElementById('btn-split-show-human');
+    const btnCenter = document.getElementById('btn-split-show-center');
+    const btnAi = document.getElementById('btn-split-show-ai');
+    const toggleButtons = [btnHuman, btnCenter, btnAi].filter(Boolean);
+
+    const setActiveToggle = (activeBtn) => {
+      toggleButtons.forEach(b => b.classList.remove('active'));
+      if (activeBtn) activeBtn.classList.add('active');
+    };
+
+    if (btnHuman) {
+      btnHuman.addEventListener('click', () => {
+        this.stopAutoAnimation();
+        this.setPercentage(0);
+        this.syncVirtualTime();
+        setActiveToggle(btnHuman);
+      });
+    }
+    if (btnCenter) {
+      btnCenter.addEventListener('click', () => {
+        this.stopAutoAnimation();
+        this.setPercentage(50);
+        this.syncVirtualTime();
+        setActiveToggle(btnCenter);
+      });
+    }
+    if (btnAi) {
+      btnAi.addEventListener('click', () => {
+        this.stopAutoAnimation();
+        this.setPercentage(100);
+        this.syncVirtualTime();
+        setActiveToggle(btnAi);
+      });
+    }
   }
 
   updatePosition(clientX) {
@@ -154,12 +241,6 @@ export class SplitScreenViewer {
     const offsetX = clientX - rect.left;
     const percentage = (offsetX / rect.width) * 100;
     this.setPercentage(percentage);
-
-    // Aligner le temps virtuel sur la nouvelle position manuelle choisie
-    // pour éviter tout saut brutal quand la souris repartira
-    const clampedRatio = Math.max(-1, Math.min(1, (this.currentPercentage - this.center) / this.amplitude));
-    const angle = Math.asin(clampedRatio);
-    this.virtualTime = (angle / (Math.PI * 2)) * this.cycleDuration;
-    if (this.virtualTime < 0) this.virtualTime += this.cycleDuration;
+    this.syncVirtualTime();
   }
 }

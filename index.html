@@ -4,14 +4,21 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AgentReady 🤖 | Fix Your E-commerce Visibility for AI Buyers</title>
-  <meta name="description" content="Your products are invisible to AI buyers. AgentReady audits how ChatGPT, Gemini and Claude see your store — and deploys the fix in 1 click. Deterministic, zero LLM variance.">
+  <title>AgentReady 🤖 | Audit & Optimisation de Visibilité E-Commerce pour IA</title>
+  <meta name="description" content="Vos produits sont-ils invisibles pour les agents d'achat IA ? AgentReady audite la perception de votre boutique par ChatGPT, Gemini et Claude, et déploie les protocoles en 1 clic. 100% déterministe.">
   
   <!-- OpenGraph / Social -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="AgentReady | Don't just score your AI visibility. Fix it.">
-  <meta property="og:description" content="Your products are invisible to AI buyers. AgentReady audits how ChatGPT, Gemini and Claude see your store — and deploys the fix in 1 click.">
-  <meta property="og:image" content="assets/product_human_view.jpg">
+  <meta property="og:title" content="AgentReady | Visibilité E-Commerce pour Acheteurs IA">
+  <meta property="og:description" content="Auditez comment ChatGPT, Gemini et Claude voient votre boutique — et déployez les protocoles de visibilité agentique en 1 clic.">
+  <meta property="og:image" content="https://aiready-production-a6c0.up.railway.app/assets/product_human_view.jpg">
+
+  <!-- Preconnect & Fonts Performance -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
@@ -38,7 +45,7 @@
         <span>Agent<span class="gradient-text-glow">Ready</span></span>
       </a>
 
-      <button type="button" class="nav-toggle" id="btn-nav-toggle" aria-label="Menu de navigation mobile">
+      <button type="button" class="nav-toggle" id="btn-nav-toggle" aria-expanded="false" aria-controls="main-nav-menu" aria-label="Ouvrir le menu de navigation">
         <i class="fas fa-bars"></i>
       </button>
 
@@ -63,8 +70,8 @@
           <i class="fas fa-brain" style="color: var(--cyan-400);"></i>
           <span id="gemini-nav-status">Gemini IA</span>
         </button>
-        <a href="#scanner" class="btn btn-primary btn-sm" id="nav-cta-fix" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
-          <i class="fas fa-wrench"></i> Corriger ma visibilité
+        <a href="#scanner" class="btn btn-primary btn-sm" id="nav-cta-fix">
+          <i class="fas fa-bolt"></i> Lancer un audit
         </a>
       </div>
     </div>
@@ -114,8 +121,8 @@
               autocomplete="off"
             >
           </div>
-          <button type="submit" class="btn btn-primary scanner-btn" id="btn-run-scan" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
-            <i class="fas fa-bolt"></i> Scanner ma boutique
+          <button type="submit" class="btn btn-primary scanner-btn" id="btn-run-scan">
+            <i class="fas fa-bolt"></i> Analyser mon store
           </button>
         </form>
 
@@ -163,10 +170,10 @@
           </div>
           <p id="scan-error-message" class="scan-error-message"></p>
           <div class="scan-error-actions">
-            <button type="button" class="btn btn-primary btn-sm" id="btn-retry-scan-error" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-retry-scan-error">
               <i class="fas fa-redo"></i> Réessayer ce scan
             </button>
-            <a id="scan-error-contact" class="btn btn-secondary btn-sm" href="#">
+            <a id="scan-error-contact" class="btn btn-secondary btn-sm" href="mailto:contact@agentready.io?subject=Assistance%20Audit%20AgentReady">
               <i class="fas fa-envelope"></i> Contacter un conseiller
             </a>
           </div>
@@ -187,7 +194,7 @@
             <button type="button" class="btn btn-secondary btn-sm" id="btn-retry-waf-scan">
               <i class="fas fa-redo"></i> Relancer le scan
             </button>
-            <a href="mailto:contact@agentready.io?subject=Audit%20Store%20Prot%C3%A9g%C3%A9%20AgentReady" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
+            <a href="mailto:contact@agentready.io?subject=Audit%20Store%20Prot%C3%A9g%C3%A9%20AgentReady" class="btn btn-primary btn-sm">
               <i class="fas fa-envelope"></i> Me contacter (email)
             </a>
           </div>
@@ -362,8 +369,21 @@
         <span class="badge badge-cyan">Comparateur Révélation Visuelle</span>
         <h2 class="section-title">Ce qu'un Humain voit <span class="gradient-text">vs</span> Ce que l'IA extrait</h2>
         <p class="lead">
-          Déplacez le curseur pour visualiser en direct le gouffre entre le design visuel de votre site et le flux textuel brut dégradé reçu par les LLMs.
+          Déplacez le curseur ou utilisez les touches fléchées pour visualiser en direct le gouffre entre le design visuel de votre site et le flux textuel brut dégradé reçu par les LLMs.
         </p>
+      </div>
+
+      <!-- Mobile Quick View Toggle -->
+      <div class="split-mobile-toggle" id="split-mobile-toggle" aria-label="Choisir la vue du comparateur">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-split-show-human">
+          <i class="fas fa-eye"></i> Vue Humain
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-split-show-center">
+          <i class="fas fa-columns"></i> 50 / 50
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-split-show-ai">
+          <i class="fas fa-brain"></i> Vue Agent IA
+        </button>
       </div>
 
       <div class="split-viewer-container" id="split-viewer-box">
@@ -372,7 +392,10 @@
         <div class="viewer-side viewer-human">
           <div class="viewer-content-human">
             <div class="human-store-mockup">
-              <img src="assets/product_human_view.jpg" alt="Fiche produit Human View" class="human-product-img">
+              <picture>
+                <source srcset="assets/product_human_view.webp" type="image/webp">
+                <img src="assets/product_human_view.jpg" width="1200" height="896" alt="Fiche produit Human View" class="human-product-img" loading="lazy" decoding="async">
+              </picture>
               <div class="human-product-details">
                 <div class="human-brand" id="human-product-brand">Sonus Audio Systems</div>
                 <h3 class="human-title" id="human-product-title">Sonus NC-700 Matte Black</h3>
@@ -437,8 +460,14 @@
           </span>
         </div>
 
-        <!-- Slider Handle -->
-        <div class="split-slider-handle" id="split-handle">
+        <!-- Slider Handle with accessible ARIA slider role -->
+        <div class="split-slider-handle" id="split-handle"
+             role="slider"
+             tabindex="0"
+             aria-label="Curseur de comparaison vue humaine versus vue agent IA"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-valuenow="50">
           <div class="handle-button">
             <i class="fas fa-arrows-alt-h"></i>
           </div>

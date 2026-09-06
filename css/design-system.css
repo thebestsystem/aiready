@@ -2,7 +2,7 @@
    AGENTREADY DESIGN SYSTEM - Core Tokens & Foundations
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* Google Fonts loaded asynchronously via <link rel="stylesheet"> in HTML head */
 
 :root {
   /* Color Palette - Dark & Vibrant Accents */
@@ -15,7 +15,7 @@
   /* Text & Sémantique */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-muted: #94a3b8; /* Enhanced contrast: > 5.5:1 against #080c16 (WCAG AA compliant) */
   --text-inverse: #020617;
   
   /* Accents & Gradients */

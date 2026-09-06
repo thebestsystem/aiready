@@ -590,7 +590,7 @@ function initGeminiModal() {
 }
 
 /* --------------------------------------------------------------------------
-   MOBILE NAVIGATION TOGGLE
+   MOBILE NAVIGATION TOGGLE (Accessible with Escape & Outside Click)
    -------------------------------------------------------------------------- */
 function initMobileNav() {
   const toggleBtn = document.getElementById('btn-nav-toggle');
@@ -598,21 +598,56 @@ function initMobileNav() {
   const geminiModal = document.getElementById('gemini-modal');
   const mobileGeminiBtn = document.getElementById('btn-open-gemini-modal-mobile');
 
-  if (toggleBtn && navMenu) {
-    toggleBtn.addEventListener('click', () => {
-      const isOpen = navMenu.classList.toggle('mobile-open');
-      toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  const closeMenu = () => {
+    if (!navMenu || !navMenu.classList.contains('mobile-open')) return;
+    navMenu.classList.remove('mobile-open');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'false');
       const icon = toggleBtn.querySelector('i');
-      if (icon) icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
+      if (icon) icon.className = 'fas fa-bars';
+    }
+  };
+
+  const openMenu = () => {
+    if (!navMenu) return;
+    navMenu.classList.add('mobile-open');
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-expanded', 'true');
+      const icon = toggleBtn.querySelector('i');
+      if (icon) icon.className = 'fas fa-times';
+    }
+  };
+
+  if (toggleBtn && navMenu) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = navMenu.classList.contains('mobile-open');
+      if (isOpen) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
     });
 
     navMenu.querySelectorAll('.nav-link').forEach(link => {
       link.addEventListener('click', () => {
-        navMenu.classList.remove('mobile-open');
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        const icon = toggleBtn.querySelector('i');
-        if (icon) icon.className = 'fas fa-bars';
+        closeMenu();
       });
+    });
+
+    // Close mobile menu on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && navMenu.classList.contains('mobile-open')) {
+        closeMenu();
+        toggleBtn.focus();
+      }
+    });
+
+    // Close when clicking outside navbar
+    document.addEventListener('click', (e) => {
+      if (navMenu.classList.contains('mobile-open') && !navMenu.contains(e.target) && !toggleBtn.contains(e.target)) {
+        closeMenu();
+      }
     });
   }
 
@@ -620,12 +655,7 @@ function initMobileNav() {
     mobileGeminiBtn.addEventListener('click', () => {
       geminiModal.classList.add('active');
       document.body.style.overflow = 'hidden';
-      if (navMenu) navMenu.classList.remove('mobile-open');
-      if (toggleBtn) {
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        const icon = toggleBtn.querySelector('i');
-        if (icon) icon.className = 'fas fa-bars';
-      }
+      closeMenu();
     });
   }
 }
