@@ -25,6 +25,11 @@ try:
 except ImportError:
     GENAI_AVAILABLE = False
 
+# Modèles officiels Google GenAI centralisés (Contexte temporel 2026 : séries 3.x stables)
+GEMINI_PRIMARY_MODEL = "gemini-3.6-flash"
+GEMINI_FALLBACK_MODEL = "gemini-3.1-flash-lite"
+GEMINI_MODELS = [GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL]
+
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib import colors
@@ -330,36 +335,47 @@ def get_gemini_api_key(user_key: Optional[str] = None) -> Optional[str]:
         pass
     return (os.getenv("GEMINI_API_KEY") or "").strip() or None
 
+def _get_gemini_client(api_key: Optional[str] = None):
+    """Initialisation factorisée et sécurisée du client Google GenAI."""
+    key = get_gemini_api_key(api_key)
+    if not key or not GENAI_AVAILABLE:
+        return None
+    try:
+        return genai.Client(api_key=key)
+    except Exception as e:
+        print(f"[Gemini] Erreur création client: {e}")
+        return None
+
 def generate_gemini_content(client, prompt: str, is_json: bool = False, max_tokens: Optional[int] = None):
     config = types.GenerateContentConfig()
     if is_json:
         config.response_mime_type = "application/json"
     if max_tokens:
         config.max_output_tokens = max_tokens
-        
+
     last_err = None
-    for model in ["gemini-3.1-flash-lite", "gemini-3.6-flash"]:
+    for model in GEMINI_MODELS:
         try:
-            return client.models.generate_content(
+            res = client.models.generate_content(
                 model=model,
                 contents=prompt,
                 config=config
             )
+            return res, model
         except Exception as e:
             last_err = e
+            print(f"[Gemini] Échec sur {model} ({e}), tentative bascule fallback...")
             continue
-    raise last_err or RuntimeError("Modèles Gemini temporairement indisponibles")
+    raise last_err or RuntimeError("Tous les modèles Gemini sont temporairement indisponibles")
 
 async def run_ai_buyer_simulation(product_info: Dict[str, Any], user_key: Optional[str] = None) -> Dict[str, Any]:
     """
-    Appelle le SDK officiel Google GenAI (gemini-3.1-flash-lite / gemini-3.6-flash) si une clé est fournie
-    (soit via la requête utilisateur, soit via la variable d'environnement GEMINI_API_KEY),
-    sinon utilise le moteur déterministe expert en mode fallback.
+    Appelle le SDK officiel Google GenAI via _get_gemini_client (cascade GEMINI_MODELS)
+    si une clé est disponible, sinon utilise le moteur déterministe certifié.
     """
-    api_key = get_gemini_api_key(user_key)
-    if api_key and GENAI_AVAILABLE:
+    client = _get_gemini_client(user_key)
+    if client:
         try:
-            client = genai.Client(api_key=api_key)
             prompt = f"""Tu es un agent IA autonome d'achat (comme ChatGPT Search, Gemini ou Operator).
 Voici les données extraites d'une fiche produit e-commerce :
 Nom: {product_info.get('name')}
@@ -377,7 +393,7 @@ Réponds STRICTEMENT en format JSON avec ces champs :
   "canBuy": <true ou false>
 }}
 """
-            res = await asyncio.to_thread(
+            res, model_used = await asyncio.to_thread(
                 generate_gemini_content,
                 client,
                 prompt,
@@ -387,16 +403,16 @@ Réponds STRICTEMENT en format JSON avec ces champs :
             return {
                 "score": parsed.get("score", 75),
                 "hallucination_risk": parsed.get("hallucinationRisk", "FAIBLE"),
-                "verdict": parsed.get("verdict", "Simulation en direct via Google Gemini validée."),
+                "verdict": parsed.get("verdict", f"Simulation en direct via {model_used} validée."),
                 "details": [
-                    "Simulation d'achat en direct via Google Gemini Flash",
+                    f"Simulation d'achat en direct via {model_used}",
                     f"Confiance d'achat IA : {parsed.get('score', 75)}/100",
                     f"Risque d'hallucination estimé par Gemini : {parsed.get('hallucinationRisk', 'FAIBLE')}"
                 ],
                 "geminiLive": True
             }
         except Exception as e:
-            print("Erreur appel Google GenAI:", e)
+            print("[Gemini] Erreur appel simulation:", e)
 
     # Fallback déterministe haute fidélité (sans clé API)
     score = 30
@@ -898,39 +914,39 @@ def gemini_status():
     return {
         "genaiAvailable": GENAI_AVAILABLE,
         "serverKeyConfigured": server_key,
-        "model": "gemini-3.6-flash"
+        "primaryModel": GEMINI_PRIMARY_MODEL,
+        "fallbackModel": GEMINI_FALLBACK_MODEL,
+        "model": GEMINI_PRIMARY_MODEL
     }
 
 @app.post("/api/gemini/test")
 async def test_gemini_key(payload: Dict[str, str]):
-    key = get_gemini_api_key(payload.get("geminiApiKey"))
-    if not key:
-        return {"ok": False, "error": "Aucune clé API fournie"}
-    if not GENAI_AVAILABLE:
-        return {"ok": False, "error": "google-genai n'est pas installé"}
+    client = _get_gemini_client(payload.get("geminiApiKey"))
+    if not client:
+        if not get_gemini_api_key(payload.get("geminiApiKey")):
+            return {"ok": False, "error": "Aucune clé API fournie"}
+        return {"ok": False, "error": "google-genai n'est pas installé ou indisponible"}
     try:
-        client = genai.Client(api_key=key)
-        res = await asyncio.to_thread(
+        res, model_used = await asyncio.to_thread(
             generate_gemini_content,
             client,
             "Réponds uniquement par 'OK'",
             is_json=False,
             max_tokens=10
         )
-        return {"ok": True, "model": "gemini-3.6-flash", "reply": res.text.strip() if res.text else "OK"}
+        return {"ok": True, "model": model_used, "reply": res.text.strip() if res.text else "OK"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 @app.post("/api/gemini/simulate-question")
 async def simulate_question(req: SimQuestionRequest):
-    api_key = get_gemini_api_key(req.geminiApiKey)
+    client = _get_gemini_client(req.geminiApiKey)
     prod = req.productData or {}
     prod_name = prod.get("name") or "Produit E-commerce"
     prod_price = f"{prod.get('price', 'Inconnu')} {prod.get('currency', 'EUR')}"
     
-    if api_key and GENAI_AVAILABLE:
+    if client:
         try:
-            client = genai.Client(api_key=api_key)
             prompt = f"""Tu es un moteur d'audit de commerce agentique.
 Un acheteur pose cette question à un agent IA autonome : "{req.question}"
 Fiche produit analysée :
@@ -952,10 +968,10 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
     "response": "<Comment un agent IA optimisé AgentReady répondrait avec certitude et précision grâce aux métadonnées Schema.org et llms.txt>",
     "verdict": "<Court impact positif immédiat sur la conversion>"
   }},
-  "model": "gemini-3.6-flash",
+  "model": "{GEMINI_PRIMARY_MODEL}",
   "geminiLive": true
 }}"""
-            res = await asyncio.to_thread(
+            res, model_used = await asyncio.to_thread(
                 generate_gemini_content,
                 client,
                 prompt,
@@ -963,9 +979,26 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
             )
             parsed = json.loads(res.text)
             parsed["geminiLive"] = True
+            parsed["model"] = model_used
             return parsed
         except Exception as e:
-            print("Erreur simulation Gemini question:", e)
+            print("[Gemini] Erreur simulation live, bascule sur mode déterministe:", e)
+            is_quota = "resource_exhausted" in str(e).lower() or "429" in str(e)
+            return {
+                "geminiLive": False,
+                "fallbackReason": "quota_exhausted" if is_quota else "service_unavailable",
+                "standardResponse": {
+                    "agentStatus": "⚠️ Risque d'Hallucination",
+                    "response": f"Je n'ai pas pu confirmer de manière certaine cette information pour \"{prod_name}\" car le code HTML de la boutique ne fournit pas de microdonnées JSON-LD explicites.",
+                    "verdict": "Perte de conversion probable ou renvoi vers un concurrent (Amazon, Fnac)."
+                },
+                "agentReadyResponse": {
+                    "agentStatus": "✅ Mode Déterministe Certifié (Quota live saturé)" if is_quota else "✅ 100% Déterministe (Protocole AgentReady)",
+                    "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont validés et certifiés via Schema.org et le manifeste llms.txt.",
+                    "verdict": "Panier validé et confirmation de commande autonome."
+                },
+                "model": f"{GEMINI_PRIMARY_MODEL} (Repli Déterministe)" if is_quota else "Mode déterministe"
+            }
 
     # Fallback déterministe haute fidélité sans clé
     return {
@@ -976,11 +1009,11 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
             "verdict": "Perte de conversion probable ou renvoi vers un concurrent (Amazon, Fnac)."
         },
         "agentReadyResponse": {
-            "agentStatus": "✅ 100% Déterministe (Protocole AgentReady)",
+            "agentStatus": "✅ Mode Déterministe Certifié (Zéro Clé Requise)",
             "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont validés et certifiés via Schema.org et le manifeste llms.txt.",
             "verdict": "Panier validé et confirmation de commande autonome."
         },
-        "model": "Mode déterministe (Entrez une clé Gemini pour l'IA en direct)"
+        "model": "Mode Déterministe Certifié (Zéro Clé Requise)"
     }
 
 def save_lead(email: str, domain: str, name: str, score: int, status: str, risk: str, source: str = "scanner") -> Dict[str, bool]:
