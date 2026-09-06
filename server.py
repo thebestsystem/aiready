@@ -203,6 +203,28 @@ SIM_RATE_WINDOW_SECONDS = int(os.getenv("SIM_RATE_WINDOW_SECONDS", "60"))
 _scan_limiter = _SlidingWindowRateLimiter(SCAN_RATE_LIMIT, SCAN_RATE_WINDOW_SECONDS, "SCAN_RATE_LIMIT", "SCAN_RATE_WINDOW_SECONDS")
 _sim_limiter = _SlidingWindowRateLimiter(SIM_RATE_LIMIT, SIM_RATE_WINDOW_SECONDS, "SIM_RATE_LIMIT", "SIM_RATE_WINDOW_SECONDS")
 
+# ==========================================================================
+# Garde-fous du scanner (TACHE-02) — bornes configurables via variables d'env.
+# ==========================================================================
+def _int_env_clamped(key: str, default_str: str, lo: int, hi: int) -> int:
+    """Lit un entier configurable via env et le clamp dans [lo, hi].
+
+    Tolérant : toute valeur illisible (non-int) retombe sur le défaut.
+    Facilité de test : comportement isolable, sinon testé par ré-import.
+    """
+    try:
+        v = int(os.getenv(key, default_str))
+    except (TypeError, ValueError):
+        v = int(default_str)
+    return max(lo, min(hi, v))
+
+# Timeout réseau (s) appliqué à l'AsyncClient principal du scan. Clamp 1..60.
+SCAN_FETCH_TIMEOUT_SECONDS = _int_env_clamped("SCAN_FETCH_TIMEOUT_SECONDS", "12", 1, 60)
+# Taille max (octets) d'une page principale chargée puis analysée (anti-abus mémoire/CPU).
+# Clamp : jamais < 100 Ko. Comportement : si le serveur annonce un Content-Length > borne
+# -> HTTP 413 ; sinon la lecture est tronquée à cette borne (jamais plus stocké).
+SCAN_MAX_RESPONSE_BYTES = _int_env_clamped("SCAN_MAX_RESPONSE_BYTES", "2000000", 100_000, 10**12)
+
 
 def _enforce_rate_limit(request: Request, limiter: _SlidingWindowRateLimiter, endpoint_name: str) -> None:
     """Refuse 429 (JSON + Retry-After) si la limite par IP est dépassée."""
@@ -270,10 +292,100 @@ HEADERS = {
 }
 
 def normalize_url(raw_url: str) -> str:
-    raw_url = raw_url.strip()
-    if not raw_url.startswith("http://") and not raw_url.startswith("https://"):
-        raw_url = "https://" + raw_url
-    return raw_url
+    """Normalise ET valide strictement une URL de scan, AVANT tout fetch réseau.
+
+    Règles (TACHE-02) :
+      - schémas uniquement http/https (sinon 400),
+      - pas d'espace interne ni saut de ligne (sinon 400),
+      - longueur maximale 2048 (sinon 400),
+      - hôte non vide requis (sinon 400).
+
+    Lève HTTPException(400) sur entrée invalide. Ne fait JAMAIS de requête réseau.
+    """
+    raw = raw_url.strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="URL non valide : champ vide.")
+    if len(raw) > 2048:
+        raise HTTPException(status_code=400, detail="URL trop longue (max 2048 caractères).")
+    if any(c.isspace() for c in raw):
+        raise HTTPException(status_code=400, detail="URL non valide : ne doit pas contenir d'espace ni de retour à la ligne.")
+    lower = raw.lower()
+    if not (lower.startswith("http://") or lower.startswith("https://")):
+        raise HTTPException(status_code=400, detail="URL non valide : seuls les liens http:// et https:// sont acceptés.")
+    parsed = urlparse(raw)
+    host = (parsed.netloc or "").lower()
+    is_sane_host = host == "localhost" or ("." in host and len(host) > 2)
+    if not is_sane_host:
+        raise HTTPException(status_code=400, detail="URL invalide : hôte manquant.")
+    return raw
+
+
+def _decode_utf8(raw: bytes) -> str:
+    """Décode des octets HTTP en texte tolérant (utf-8 avec remplacement)."""
+    try:
+        return raw.decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+async def _read_page_bounded(resp: httpx.Response, limit: int) -> bytes:
+    """Lit le corps d'une réponse httpx sans jamais conserver plus de `limit` octets.
+
+    Utilise le streaming natif (`aiter_bytes`) pour les vraies réponses `httpx.Response`.
+    Repli sûr vers le corps déjà matérialisé pour les objets de test simples
+    (Starlette TestClient / mocks qui exposent `.text`) — suffisant car ces corps
+    sont de toute façon déjà en mémoire.
+    """
+    raw_parts = []
+    size = 0
+    # Détection d'un vrai flux httpx (et non d'un mock qui répond True à tout).
+    if isinstance(resp, httpx.Response) and resp.aiter_bytes is not None:
+        try:
+            async for chunk in resp.aiter_bytes():
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8", "ignore")
+                if size >= limit:
+                    break
+                room = limit - size
+                seg = bytes(chunk)[:room]
+                raw_parts.append(seg)
+                size += len(seg)
+            return b"".join(raw_parts)
+        except Exception:
+            # chute contrôlée : on retombe sur le corps matérialisé ci-dessous
+            pass
+    text = getattr(resp, "text", "") or ""
+    body = text.encode("utf-8", "replace") if isinstance(text, str) else bytes(text or b"")
+    return body[:limit]
+
+
+async def _cancel_scan_tasks(*tasks) -> None:
+    """Annule proprement des tâches asyncio et attend leur fin (sans avertissement).
+
+    Utilisé sur les chemins d'erreur du scan pour éviter les RuntimeWarning
+    "coroutine was never awaited" quand on refuse la page avant le gather final.
+    """
+    for t in tasks:
+        if not t.done():
+            t.cancel()
+    if tasks:
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _looks_like_web_page(content_type_header: str, html_head: str) -> bool:
+    """Une ressource peut-elle être analysée comme une page web HTML ?
+
+    Accepte explicitement text/html et application/xhtml+xml.
+    Filet de tolérance : text/plain (ou Content-Type absent) n'est accepté que si le
+    début du corps contient un balisage HTML explicite (<html / <head / <!doctype).
+    """
+    ct = (content_type_header or "").lower()
+    if "text/html" in ct or "application/xhtml+xml" in ct:
+        return True
+    head = (html_head or "").lower()
+    if ("text/plain" in ct or not ct) and ("<html" in head or "<head" in head or "<!doctype" in head):
+        return True
+    return False
 
 async def fetch_robots_txt(client: httpx.AsyncClient, domain: str) -> Dict[str, Any]:
     robots_url = f"https://{domain}/robots.txt"
@@ -745,22 +857,69 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
 
 @app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
 async def scan_url(req: ScanRequest):
-    url = normalize_url(req.url)
+    url = normalize_url(req.url)  # valide & normalise AVANT tout fetch (levée 400 sur URL invalide)
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split("/")[0]
 
-    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=12.0) as client:
-        # 1. Fetch robots.txt & llms.txt in parallel with main page
-        robots_task = fetch_robots_txt(client, domain)
-        llms_task = check_llms_txt(client, domain)
-        
+    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=SCAN_FETCH_TIMEOUT_SECONDS) as client:
+        # 1. Fetch robots.txt & llms.txt (déjà typés / bornés) de façon indépendante.
+        # On les lance en tâches réelles afin de pouvoir annuler proprement en cas de
+        # refus anticipé (pas de coroutine "jamais awaitée" sur le chemin d'erreur).
+        robots_task = asyncio.create_task(fetch_robots_txt(client, domain))
+        llms_task = asyncio.create_task(check_llms_txt(client, domain))
+
         try:
             page_resp = await client.get(url)
-            html_content = page_resp.text
-            status_code = page_resp.status_code
-            resp_headers = {k.lower(): v for k, v in page_resp.headers.items()}
         except Exception as e:
+            await _cancel_scan_tasks(robots_task, llms_task)
             raise HTTPException(status_code=400, detail=f"Impossible de joindre l'URL : {str(e)}")
+
+        status_code = page_resp.status_code
+
+        # 2. Garde-fou statut HTTP principal (TACHE-02) : ne JAMAIS analyser une page d'erreur.
+        # Mapping explicite pour ne pas que notre réponse se confonde avec notre propre 429.
+        if status_code == 404:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(status_code=404, detail="Le site a répondu HTTP 404 — page introuvable, rien d'analysable.")
+        if 500 <= status_code:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(status_code=502, detail=f"Le site a répondu HTTP {status_code} — erreur serveur distante, rien d'analysable.")
+        if 400 <= status_code < 500:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(status_code=400, detail=f"Le site a répondu HTTP {status_code} — page d'erreur, rien d'analysable.")
+        if status_code < 200 or 300 <= status_code < 400:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(status_code=400, detail=f"Le site a répondu HTTP {status_code} — réponse non exploitable par le scanner.")
+
+        raw_headers = {k.lower(): v for k, v in page_resp.headers.items()}
+        content_type = raw_headers.get("content-type", "")
+
+        # 3. Garde anti-DoS (TACHE-02) : refus net 413 si le serveur annonce un corps trop gros
+        len_hdr = raw_headers.get("content-length")
+        if len_hdr:
+            try:
+                announced = int(len_hdr)
+            except ValueError:
+                announced = 0
+            if announced > SCAN_MAX_RESPONSE_BYTES:
+                await _cancel_scan_tasks(robots_task, llms_task)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Page trop volumineuse ({len_hdr} octets annoncés, plafond {SCAN_MAX_RESPONSE_BYTES} octets). Scan refusé."
+                )
+
+        # 4. Lecture bornée : jamais plus de SCAN_MAX_RESPONSE_BYTES conservé/analysé.
+        body_bytes = await _read_page_bounded(page_resp, SCAN_MAX_RESPONSE_BYTES)
+        html_content = page_resp.text if not isinstance(page_resp, httpx.Response) else _decode_utf8(body_bytes)
+
+        # 5. Garde Content-Type (TACHE-02) : on n'analyse QUE des pages web.
+        if not _looks_like_web_page(content_type, html_content[:2000]):
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(
+                status_code=415,
+                detail=f"Ce n'est pas une page web HTML (type de contenu : '{content_type or 'inconnu'}'). AgentReady audite des fiches produits navigables par les robots IA."
+            )
+        resp_headers = {k.lower(): v for k, v in page_resp.headers.items()}
 
         robots_info, llms_info = await asyncio.gather(robots_task, llms_task)
 

@@ -261,6 +261,185 @@ class TestE2EPipeline(unittest.TestCase):
 
         server._sim_limiter.reset()
 
+    # ------------------------------------------------------------------
+    # TACHE-02 — Garde-fous du scanner /api/scan (validation, statut,
+    # content-type, borne de taille, timeout configurable).
+    # ------------------------------------------------------------------
+    def test_09_scan_rejects_invalid_url_before_fetch(self):
+        """Étape 9 (TACHE-02) : URL invalide -> 400 SANS jamais tenter de requête réseau."""
+        from unittest.mock import patch, AsyncMock
+
+        server._scan_limiter.reset()
+
+        bad_urls = [
+            ("ftp://boutique-test.fr/robot.txt", "http"),
+            ("javascript:alert(1)", "http"),
+            ("https://boutique-test .fr", "espace"),
+            ("", "vide"),
+        ]
+        net_called = {"flag": False}
+
+        def _boom(*a, **k):
+            net_called["flag"] = True
+            raise AssertionError("Un fetch réseau a été tenté alors que l'URL est invalide")
+
+        mock_get = AsyncMock(side_effect=_boom)
+
+        with patch("httpx.AsyncClient.get", mock_get):
+            for url, frag in bad_urls:
+                res = self.client.post(
+                    "/api/scan",
+                    json={"url": url},
+                    headers={"X-Forwarded-For": f"10.9.{len(url) % 50}.{len(url) % 200}"},
+                )
+                self.assertEqual(res.status_code, 400, f"URL '{url[:30]}' devrait être rejetée (400)")
+                detail = res.json()
+                self.assertIn("detail", detail)
+                self.assertGreater(len(detail["detail"]), 0)
+
+        self.assertFalse(net_called["flag"], "Aucune requête réseau ne doit partir sur une URL rejetée")
+
+    def test_10_scan_rejects_http_error_page(self):
+        """Étape 10 (TACHE-02) : page en erreur HTTP (404/500/429) -> refus, jamais analysée."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+
+        server._scan_limiter.reset()
+
+        cases = [
+            (404, 404, "page introuvable"),
+            (500, 502, "serveur distante"),      # mauvais statut upstream -> 502 (jamais notre 429)
+            (429, 400, "page d'erreur"),          # 429 du site cible n'est pas notre rate-limit → 400 net
+        ]
+        for err_status, expected_status, kw in cases:
+            fake = MagicMock()
+            fake.status_code = err_status
+            fake.headers = {"content-type": "text/html"}
+            fake.text = "<html><head><title>Erreur</title></head><body>Oops</body></html>"
+
+            with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake):
+                res = self.client.post(
+                    "/api/scan",
+                    json={"url": "https://boutique-test.fr/produit"},
+                    headers={"X-Forwarded-For": f"10.20.{err_status % 50}.{err_status % 200}"},
+                )
+            self.assertEqual(res.status_code, expected_status,
+                             f"Statut cible {err_status} -> doit produire {expected_status}")
+            self.assertIn(kw, res.json()["detail"])
+
+        server._scan_limiter.reset()
+
+    def test_11_scan_rejects_non_web_content(self):
+        """Étape 11 (TACHE-02) : fiche en PDF/image/JSON n'est pas une page web -> 415."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+
+        server._scan_limiter.reset()
+
+        non_html = [
+            ("application/pdf", "%PDF-1.4 fake"),
+            ("application/json", '{"type":"api","data":[]}'),
+            ("image/png", "\x89PNG\r\n\x1a\n"),
+        ]
+        for ctype, body in non_html:
+            fake = MagicMock()
+            fake.status_code = 200
+            fake.headers = {"content-type": ctype}
+            fake.text = body
+            with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake):
+                res = self.client.post(
+                    "/api/scan",
+                    json={"url": "https://boutique-test.fr/catalogue.pdf"},
+                    headers={"X-Forwarded-For": f"10.31.{hash(ctype) % 200}.{len(ctype) % 200}"},
+                )
+            self.assertEqual(res.status_code, 415, f"Content-Type '{ctype}' doit être refusé")
+            self.assertIn("page web HTML", res.json()["detail"])
+
+        server._scan_limiter.reset()
+
+    def test_12_scan_rejects_too_large_announced_page(self):
+        """Étape 12 (TACHE-02) : page annonçant un Content-Length > borne -> 413 (anti-DoS)."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+
+        server._scan_limiter.reset()
+
+        fake = MagicMock()
+        fake.status_code = 200
+        fake.headers = {
+            "content-type": "text/html",
+            "content-length": str(server.SCAN_MAX_RESPONSE_BYTES + 500_000),  # juste au-dessus de la borne
+        }
+        fake.text = "<html><body>page géante</body></html>"
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake):
+            res = self.client.post(
+                "/api/scan",
+                json={"url": "https://boutique-test.fr/page-geante"},
+                headers={"X-Forwarded-For": "10.41.1.7"},
+            )
+        self.assertEqual(res.status_code, 413)
+        self.assertIn("trop volumineuse", res.json()["detail"].lower())
+
+        server._scan_limiter.reset()
+
+    def test_13_scan_timeout_and_size_env_clamped(self):
+        """Étape 13 (TACHE-02) : timeouts & bornes configurables via env, clamps de sécurité."""
+        server._scan_limiter.reset()
+
+        tmp_env_key = "T02_CLAMP_TEST"
+        self.assertEqual(server._int_env_clamped(tmp_env_key, "12", 1, 60), 12)  # valeur par défaut
+        os.environ[tmp_env_key] = "9999"
+        self.assertEqual(server._int_env_clamped(tmp_env_key, "12", 1, 60), 60)  # clamp haut
+        os.environ[tmp_env_key] = "-5"
+        self.assertEqual(server._int_env_clamped(tmp_env_key, "12", 1, 60), 1)   # clamp bas
+        os.environ[tmp_env_key] = "abc"
+        self.assertEqual(server._int_env_clamped(tmp_env_key, "12", 1, 60), 12)  # non-numérique -> défaut
+        del os.environ[tmp_env_key]
+
+        # Le timeout produit doit toujours rester dans la plage [1..60].
+        self.assertGreaterEqual(server.SCAN_FETCH_TIMEOUT_SECONDS, 1)
+        self.assertLessEqual(server.SCAN_FETCH_TIMEOUT_SECONDS, 60)
+        # La borne mémoire >= 100 Ko (contrainte de plancher).
+        self.assertGreaterEqual(server.SCAN_MAX_RESPONSE_BYTES, 100_000)
+
+    def test_14_scan_tolerates_large_page_without_content_length(self):
+        """Étape 14 (TACHE-02) : grand HTML SANS Content-Length est tronqué à la borne, jamais 500."""
+        import httpx
+        from unittest.mock import patch, AsyncMock
+
+        server._scan_limiter.reset()
+
+        # Vrai corps httpx : 3 Mo de balisage valide, sans header Content-Length.
+        big_html = ("<html><head><title>Grosse page</title></head><body>" + ("<p>produit X</p>" * 170000) + "</body></html>").encode("utf-8")
+        self.assertGreater(len(big_html), server.SCAN_MAX_RESPONSE_BYTES, "Le corps doit être plus grand que la borne")
+
+        response = httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},  # pas de content-length indiqué volontairement
+            content=big_html,
+            request=httpx.Request("GET", "https://boutique-test.fr/"),
+        )
+        # httpx matérialise par défaut un Content-Length sur une Response construite en mémoire.
+        # On le retire pour simuler un serveur descendant en flux (chunked, sans longueur annoncée)
+        # et ainsi prouver le déclenchement de la *troncature* (et non du refus 413).
+        if "content-length" in response.headers:
+            del response.headers["content-length"]
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=response), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock,
+                   return_value={"found": True, "global_disallowed": False,
+                                 "disallowed_bots": [], "raw": ""}), \
+             patch("server.check_llms_txt", new_callable=AsyncMock,
+                   return_value={"found": False, "path": None, "content": None}):
+            res = self.client.post(
+                "/api/scan",
+                json={"url": "https://boutique-test.fr/grosse-page"},
+                headers={"X-Forwarded-For": "10.50.1.9"},
+            )
+        # La page étant un vrai HTML valide (juste très grosse), le scan doit aboutir
+        # sans 413 ni 500 : le corps est tronqué en mémoire à la borne.
+        self.assertNotIn(res.status_code, (500, 413, 415), f"Réponse inattendue (HTTP {res.status_code})")
+
+        server._scan_limiter.reset()
+
 
 if __name__ == "__main__":
     unittest.main()
