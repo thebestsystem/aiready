@@ -10,10 +10,16 @@ echo.
 echo  Initialisation de l'environnement...
 cd /d "%~dp0"
 
+:: Configuration du chemin Python (priorite C:\python-3.13.15)
+set "PY_CMD=python"
+if exist "C:\python-3.13.15\python.exe" (
+    set "PY_CMD=C:\python-3.13.15\python.exe"
+)
+
 :: Verification de Python
-python --version >nul 2>&1
+%PY_CMD% --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERREUR] Python n'est pas installe ou n'est pas dans votre PATH.
+    echo [ERREUR] Python n'est pas installe ou n'est pas accessible.
     echo Veuillez installer Python depuis https://python.org
     pause
     exit /b
@@ -21,11 +27,11 @@ if %errorlevel% neq 0 (
 
 :: Installation rapide des dependances requises au besoin
 echo [1/3] Verification des librairies requises (FastAPI, ReportLab, GenAI)...
-python -m pip install -q -r requirements.txt >nul 2>&1
+%PY_CMD% -m pip install -q -r requirements.txt >nul 2>&1
 
 :: Lancement du serveur unifie (API + Frontend integre)
 echo [2/3] Demarrage du serveur AgentReady sur le port 8000...
-start "AgentReady Server (Port 8000)" cmd /k "python -m uvicorn server:app --host 127.0.0.1 --port 8000"
+start "AgentReady Server (Port 8000)" cmd /k "%PY_CMD% -m uvicorn server:app --host 127.0.0.1 --port 8000"
 
 :: Optionnel : serveur port 3000 pour compatibilite historique
 start "AgentReady Frontend Backup (Port 3000)" /min cmd /k "python -m http.server 3000"

@@ -12,6 +12,56 @@ export const AUDIT_PRESETS = {
     statusLabel: "Agent Blind (Inaudible pour l'IA)",
     statusBadgeClass: "badge-blind",
     summary: "Ce site bloque les crawlers IA via Cloudflare WAF, souffre d'un balisage Schema.org incomplet et oblige les LLMs à dépenser +5 800 tokens par analyse, provoquant 40% de réponses hallucinées.",
+    brokenItems: [
+      {
+        title: "Blocage WAF / Robots.txt actif sur GPTBot et ClaudeBot",
+        impact: "Les agents IA ChatGPT Search et Perplexity reçoivent une page de challenge captcha 403 et ne peuvent pas indexer votre offre.",
+        severity: "critical"
+      },
+      {
+        title: "Microdonnées Schema.org Offer & Stock inexistantes",
+        impact: "Aucun prix numérique ni stock en direct certifié. Les agents acheteurs refusent d'ajouter au panier.",
+        severity: "critical"
+      },
+      {
+        title: "Pollution DOM extrême (5 840 tokens par visite)",
+        impact: "Scripts tiers et trackers inutiles qui saturent la mémoire de contexte des LLMs.",
+        severity: "warning"
+      }
+    ],
+    rawJsonLd: `<!-- ❌ AUCUN BALISAGE SCHEMA.ORG DÉTECTÉ -->
+<!-- Les crawlers de ChatGPT, Gemini et Perplexity voient une page muette. -->
+<script>
+  window.ShopifyAnalytics = window.ShopifyAnalytics || {};
+  // Microdonnées absentes du rendu serveur
+</script>`,
+    fixedJsonLd: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "MyStore Vintage NC-700",
+  "sku": "MSV-NC700-01",
+  "offers": {
+    "@type": "Offer",
+    "price": "249.00",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "shippingDetails": {
+      "@type": "OfferShippingDetails",
+      "shippingRate": {
+        "@type": "MonetaryAmount",
+        "value": "0.00",
+        "currency": "EUR"
+      }
+    },
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "merchantReturnDays": 30,
+      "returnFees": "https://schema.org/FreeReturn"
+    }
+  }
+}
+</script>`,
     productData: {
       name: "MyStore Vintage NC-700 (Shopify Brut)",
       brand: "MyStore Vintage",
@@ -23,12 +73,11 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué / CSR", label: "Crawl & Bots Access" },
-      schema: { score: 30, max: 100, weight: "25%", status: "Incomplet", label: "Schema.org / JSON-LD" },
-      tokens: { score: 40, max: 100, weight: "20%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
-      simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "AI Buyer Simulator" },
-      proto: { score: 0, max: 100, weight: "15%", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" },
-      protocols: { score: 0, max: 100, weight: "15%", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 45, max: 100, weight: "30%", status: "Bloqué / WAF Challenge", label: "Crawl & Bots Access" },
+      schema: { score: 30, max: 100, weight: "40%", status: "Incomplet (0 Offer)", label: "Schema.org / JSON-LD" },
+      tokens: { score: 40, max: 100, weight: "30%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
+      simulator: { score: 35, max: 100, weight: "Simulation", status: "Hallucinations détectées", label: "AI Buyer Simulator (Aperçu)" },
+      proto: { score: 0, max: 100, weight: "Protocoles", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "5 840 tokens",
@@ -49,6 +98,56 @@ export const AUDIT_PRESETS = {
     statusLabel: "Agent Ready (Parfaitement Optimisé)",
     statusBadgeClass: "badge-ready",
     summary: "Fiche produit modèle. Données Schema.org 100% validées, latence de crawl < 210ms, tokens optimisés (780 tokens/fiche), fichier llms.txt certifié et serveur MCP actif pour l'achat autonome.",
+    brokenItems: [
+      {
+        title: "Balisage machine irréprochable",
+        impact: "Les bots de ChatGPT, Claude et Perplexity disposent du prix exact, du stock temps réel et des conditions de retour sans hallucination.",
+        severity: "info"
+      }
+    ],
+    rawJsonLd: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "Sonus NC-700 Matte Black",
+  "sku": "SONUS-NC700-BLK",
+  "offers": {
+    "@type": "Offer",
+    "price": "249.00",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "merchantReturnDays": 30
+    }
+  }
+}
+</script>`,
+    fixedJsonLd: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "Sonus NC-700 Matte Black (Certifié AgentReady)",
+  "sku": "SONUS-NC700-BLK",
+  "gtin13": "3700123456789",
+  "brand": { "@type": "Brand", "name": "Sonus" },
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "EUR",
+    "price": "249.00",
+    "availability": "https://schema.org/InStock",
+    "shippingDetails": {
+      "@type": "OfferShippingDetails",
+      "shippingRate": { "@type": "MonetaryAmount", "value": "0.00", "currency": "EUR" }
+    },
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "merchantReturnDays": 30,
+      "returnFees": "https://schema.org/FreeReturn"
+    }
+  }
+}
+</script>`,
     productData: {
       name: "Sonus NC-700 Matte Black (Certifié)",
       brand: "Sonus Audio Systems",
@@ -60,12 +159,11 @@ export const AUDIT_PRESETS = {
       has_return: true
     },
     pillars: {
-      crawl: { score: 98, max: 100, weight: "20%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
-      schema: { score: 96, max: 100, weight: "25%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
-      tokens: { score: 95, max: 100, weight: "20%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
-      simulator: { score: 98, max: 100, weight: "20%", status: "5/5 Exactitude (0 hallucination)", label: "AI Buyer Simulator" },
-      proto: { score: 94, max: 100, weight: "15%", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" },
-      protocols: { score: 94, max: 100, weight: "15%", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 98, max: 100, weight: "30%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
+      schema: { score: 96, max: 100, weight: "40%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
+      tokens: { score: 95, max: 100, weight: "30%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
+      simulator: { score: 98, max: 100, weight: "Simulation", status: "5/5 Exactitude (0 hallucination)", label: "AI Buyer Simulator (Aperçu)" },
+      proto: { score: 94, max: 100, weight: "Protocoles", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "780 tokens (-86% de coût)",
@@ -86,6 +184,55 @@ export const AUDIT_PRESETS = {
     statusLabel: "Agent Friction (Données partielles)",
     statusBadgeClass: "badge-friction",
     summary: "Le site est accessible mais manque d'attributs critiques : la politique de retour n'est pas structurée et le stock temps réel n'est pas exposé aux robots.",
+    brokenItems: [
+      {
+        title: "Politique de retour et conditions d'échange absentes",
+        impact: "Les agents IA indiquent 'conditions inconnues' à l'acheteur, provoquant 35% d'hésitation et d'abandon.",
+        severity: "warning"
+      },
+      {
+        title: "Index llms.txt non configuré",
+        impact: "Les bots doivent parser manuellement les pages de catalogue au lieu d'ingérer l'index sémantique direct.",
+        severity: "info"
+      }
+    ],
+    rawJsonLd: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "Hoodie Heavyweight Gris",
+  "offers": {
+    "@type": "Offer",
+    "price": "79.00",
+    "priceCurrency": "EUR"
+    /* hasMerchantReturnPolicy MANQUANT */
+    /* shippingDetails MANQUANT */
+  }
+}
+</script>`,
+    fixedJsonLd: `<script type="application/ld+json">
+{
+  "@context": "https://schema.org/",
+  "@type": "Product",
+  "name": "Hoodie Heavyweight Gris 450 GSM",
+  "sku": "URBAN-HD-GRY-01",
+  "offers": {
+    "@type": "Offer",
+    "price": "79.00",
+    "priceCurrency": "EUR",
+    "availability": "https://schema.org/InStock",
+    "shippingDetails": {
+      "@type": "OfferShippingDetails",
+      "shippingRate": { "@type": "MonetaryAmount", "value": "4.90", "currency": "EUR" }
+    },
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "merchantReturnDays": 14,
+      "returnFees": "https://schema.org/FreeReturn"
+    }
+  }
+}
+</script>`,
     productData: {
       name: "Hoodie Heavyweight Gris 450 GSM",
       brand: "Urban Streetwear Co",
@@ -97,12 +244,11 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
-      schema: { score: 60, max: 100, weight: "25%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
-      tokens: { score: 68, max: 100, weight: "20%", status: "2 450 tokens", label: "Pureté Sémantique" },
-      simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "AI Buyer Simulator" },
-      proto: { score: 20, max: 100, weight: "15%", status: "llms.txt partiel, pas de MCP", label: "Protocoles (llms.txt / MCP)" },
-      protocols: { score: 20, max: 100, weight: "15%", status: "llms.txt partiel, pas de MCP", label: "Protocoles (llms.txt / MCP)" }
+      crawl: { score: 75, max: 100, weight: "30%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
+      schema: { score: 60, max: 100, weight: "40%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
+      tokens: { score: 68, max: 100, weight: "30%", status: "2 450 tokens", label: "Pureté Sémantique" },
+      simulator: { score: 62, max: 100, weight: "Simulation", status: "Réponses vagues sur retours", label: "AI Buyer Simulator (Aperçu)" },
+      proto: { score: 20, max: 100, weight: "Protocoles", status: "llms.txt partiel, pas de MCP", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
       tokens: "2 450 tokens",

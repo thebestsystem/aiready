@@ -1097,3 +1097,185 @@ pre code {
   flex-wrap: wrap;
   gap: 1rem;
 }
+
+/* --------------------------------------------------------------------------
+   NEW V1 COMMANDO: WHAT'S BROKEN & INLINE BEFORE/AFTER AUTO-FIX
+   -------------------------------------------------------------------------- */
+.scanner-subtext {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.whats-broken-container {
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.08);
+}
+
+.whats-broken-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.whats-broken-subtitle {
+  font-size: 0.85rem;
+  color: var(--rose-400);
+  font-weight: 600;
+}
+
+.whats-broken-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.whats-broken-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.whats-broken-item.warning {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.05);
+}
+
+.whats-broken-item.info {
+  border-color: rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.whats-broken-icon {
+  font-size: 1.1rem;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+}
+
+.whats-broken-content {
+  flex: 1;
+}
+
+.whats-broken-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.2rem;
+}
+
+.whats-broken-impact {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* Inline Auto-Fix Card (Before / After) */
+.inline-autofix-card {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.75rem;
+  overflow: hidden;
+}
+
+.autofix-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: rgba(13, 20, 36, 0.95);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.autofix-tab-pills {
+  display: flex;
+  gap: 0.4rem;
+  background: var(--bg-darkest);
+  padding: 0.25rem;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+}
+
+.autofix-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all var(--transition-fast);
+}
+
+.autofix-tab-btn:hover {
+  color: #fff;
+}
+
+.autofix-tab-btn.active {
+  background: var(--bg-surface-elevated);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.autofix-tab-btn.active.before-mode {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--rose-400);
+}
+
+.autofix-tab-btn.active.after-mode {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--emerald-400);
+}
+
+.autofix-code-preview {
+  padding: 1.25rem;
+  background: #060911;
+  max-height: 260px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.autofix-code-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* WAF / CSR Fallback State (Task 4) */
+.waf-blocked-card {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: var(--radius-md);
+  padding: 1.5rem 1.75rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 4px 24px rgba(239, 68, 68, 0.12);
+  animation: fadeIn 0.3s ease-out forwards;
+  text-align: left;
+}
+
+

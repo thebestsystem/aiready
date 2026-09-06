@@ -70,6 +70,11 @@ class PillarScore(BaseModel):
     label: str
     details: List[str] = []
 
+class BrokenItem(BaseModel):
+    title: str
+    impact: str
+    severity: str = "critical"
+
 class AuditResult(BaseModel):
     domain: str
     name: str
@@ -83,6 +88,11 @@ class AuditResult(BaseModel):
     aiView: Dict[str, str]
     autoFix: Dict[str, str]
     productData: Dict[str, Any]
+    brokenItems: List[BrokenItem] = []
+    rawJsonLd: str = ""
+    fixedJsonLd: str = ""
+    isWafBlocked: bool = False
+    wafDetails: Optional[Dict[str, str]] = None
     geminiLive: bool = False
 
 # Common Headers to avoid naive bot blockades while identifying as auditor
@@ -605,6 +615,46 @@ async def scan_url(req: ScanRequest):
     # Parse DOM
     soup = BeautifulSoup(html_content, "html.parser")
     page_title = soup.title.string.strip() if soup.title and soup.title.string else domain
+    content_lower = html_content.lower()
+
+    # Détection WAF / Anti-Bot / Rendu JavaScript CSR bloquant (Tâche 4)
+    is_waf_blocked = False
+    waf_details = None
+
+    is_cf_challenge = (
+        status_code in [403, 503] or
+        "cf-mitigated" in content_lower or
+        "challenge-platform" in content_lower or
+        ("cloudflare" in resp_headers.get("server", "").lower() and ("just a moment" in content_lower or "enable javascript" in content_lower))
+    )
+    is_datadome = "datadome" in content_lower or "datadome" in resp_headers
+    dom_text = soup.get_text(strip=True)
+    is_empty_csr = len(dom_text) < 140 and any(k in content_lower for k in ["<div id=\"root\"", "<div id=\"app\"", "<div id=\"__next\"", "noscript"])
+
+    if is_cf_challenge:
+        is_waf_blocked = True
+        waf_details = {
+            "blocker": "Cloudflare WAF / Challenge",
+            "message": "Nous n'avons pas pu lire le DOM complet.",
+            "advice": "autorisez 'AgentReadyBot' dans votre pare-feu / servez un HTML SSR, puis relancez."
+        }
+        crawl_score = min(crawl_score, 25)
+    elif is_datadome:
+        is_waf_blocked = True
+        waf_details = {
+            "blocker": "DataDome Anti-bot",
+            "message": "Nous n'avons pas pu lire le DOM complet.",
+            "advice": "whitelisez le user-agent 'AgentReadyBot' ou fournissez un flux SSR pré-rendu."
+        }
+        crawl_score = min(crawl_score, 25)
+    elif is_empty_csr:
+        is_waf_blocked = True
+        waf_details = {
+            "blocker": "Rendu Client-Side (CSR non pré-rendu)",
+            "message": "Le HTML reçu ne contient aucun texte produit (DOM vide avant exécution JS).",
+            "advice": "activez le Server-Side Rendering (SSR) pour exposer vos fiches produits aux robots IA."
+        }
+        crawl_score = min(crawl_score, 35)
 
     # PILIER 2 : Schema.org & JSON-LD
     json_ld_list = extract_json_ld(soup)
@@ -617,8 +667,37 @@ async def scan_url(req: ScanRequest):
     # PILIER 3 : Pureté Sémantique & Tokens
     semantic_res = analyze_semantic_purity(soup, len(html_content))
 
-    # PILIER 4 : AI Buyer Simulator
-    sim_res = await run_ai_buyer_simulation(schema_res["product_data"], req.geminiApiKey)
+    # PILIER 4 : AI Buyer Simulator (100% Déterministe en V1 - Zéro appel LLM au scan)
+    sim_score = 30
+    sim_details = []
+    prod_data = schema_res["product_data"]
+    if prod_data.get("price") and prod_data.get("price") != "Inconnu":
+        sim_score += 25
+        sim_details.append("Prix certifié : L'agent IA peut présenter le montant exact")
+    else:
+        sim_details.append("Prix incertain ou masqué par JavaScript")
+
+    if prod_data.get("has_shipping"):
+        sim_score += 20
+        sim_details.append("Livraison claire : 0 hallucination sur les frais de port")
+    else:
+        sim_details.append("Livraison non structurée : Risque d'hallucination")
+
+    if prod_data.get("has_return"):
+        sim_score += 15
+        sim_details.append("Politique de retour validée")
+
+    if prod_data.get("has_stock"):
+        sim_score += 10
+        sim_details.append("Stock disponible confirmé")
+
+    sim_risk = "FAIBLE (0-5%)" if sim_score >= 80 else ("MOYEN (20-35%)" if sim_score >= 55 else "ÉLEVÉ (50%+)")
+    sim_res = {
+        "score": sim_score,
+        "hallucination_risk": sim_risk,
+        "details": sim_details,
+        "geminiLive": False
+    }
 
     # PILIER 5 : Protocoles Agentiques (llms.txt & MCP)
     proto_score = 0
@@ -632,16 +711,70 @@ async def scan_url(req: ScanRequest):
     proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
     proto_score = max(5, proto_score)
 
-    # CALCUL DU SCORE GLOBAL (Pondération PRD)
-    # 1. Crawl (20%) + 2. Schema (25%) + 3. Tokens (20%) + 4. Simulator (20%) + 5. Protocols (15%)
+    # CALCUL DU SCORE GLOBAL V1 DÉTERMINISTE PUR (0 Variance, 0 LLM Judge)
+    # 1. Crawl & Access (30%) + 2. Schema.org / JSON-LD (40%) + 3. Pureté Sémantique & Tokens (30%)
     total_score = int(
-        (crawl_score * 0.20) +
-        (schema_res["score"] * 0.25) +
-        (semantic_res["score"] * 0.20) +
-        (sim_res["score"] * 0.20) +
-        (proto_score * 0.15)
+        (crawl_score * 0.30) +
+        (schema_res["score"] * 0.40) +
+        (semantic_res["score"] * 0.30)
     )
     total_score = max(5, min(100, total_score))
+
+    # Auto-Fix Generation
+    autofix_files = generate_auto_fix_snippets(domain, schema_res["product_data"])
+    fixed_json_str = autofix_files.get("schemaJson", "")
+
+    # Détection du JSON-LD brut actuel (Vue Avant)
+    if json_ld_list:
+        raw_json_str = json.dumps(json_ld_list[0] if len(json_ld_list) == 1 else json_ld_list, indent=2, ensure_ascii=False)
+    else:
+        raw_json_str = """<!-- ❌ AUCUN BALISAGE SCHEMA.ORG DÉTECTÉ SUR CETTE FICHE -->
+<!-- Votre boutique est invisible pour ChatGPT Search, Gemini et Perplexity. -->
+<!-- Les agents acheteurs ne peuvent pas vérifier le prix, le stock ni acheter. -->"""
+
+    # Identification systématique des failles critiques "What's Broken" (P0 Conversion)
+    broken_items = []
+    if crawl_score < 75:
+        broken_items.append(BrokenItem(
+            title="Blocage des crawlers IA dans robots.txt ou WAF",
+            impact="GPTBot (ChatGPT) ou ClaudeBot sont refoulés ou bridés lors de l'indexation de vos pages.",
+            severity="critical"
+        ))
+    
+    prod_info = schema_res["product_data"]
+    if not prod_info.get("price") or prod_info.get("price") == "Inconnu":
+        broken_items.append(BrokenItem(
+            title="Prix et offre (Offer) absents du balisage Schema.org",
+            impact="L'agent IA ne peut pas garantir le montant à l'acheteur et refuse de recommander le panier.",
+            severity="critical"
+        ))
+    elif not prod_info.get("has_shipping") or not prod_info.get("has_return"):
+        broken_items.append(BrokenItem(
+            title="Politique de retour ou frais d'expédition non structurés",
+            impact="Risque d'hallucination de 35% : l'IA invente des frais de port erronés ou renvoie vers Amazon.",
+            severity="warning"
+        ))
+    
+    if semantic_res["tokens"] > 3500:
+        broken_items.append(BrokenItem(
+            title=f"Surcharge DOM : {semantic_res['tokens']} tokens gaspillés par consultation",
+            impact="Saturation du contexte des agents IA autonomes, perte de précision et risque de timeout.",
+            severity="warning"
+        ))
+    
+    if not llms_info["found"]:
+        broken_items.append(BrokenItem(
+            title="Index standard /.well-known/llms.txt manquant",
+            impact="Aucun manifeste machine-readable direct fourni aux moteurs de recherche IA 2026.",
+            severity="info"
+        ))
+
+    if not broken_items:
+        broken_items.append(BrokenItem(
+            title="Balisage agentique d'excellence",
+            impact="Votre boutique fournit les données nécessaires pour convertir directement les agents IA acheteurs.",
+            severity="info"
+        ))
 
     # Status classification
     if total_score >= 80:
@@ -660,9 +793,6 @@ async def scan_url(req: ScanRequest):
         badge_class = "badge-blind"
         summary = f"Ce site est difficilement lisible ou bloqué pour les agents IA. Risque d'hallucination élevé lors des recherches d'achat."
 
-    # Auto-Fix Generation
-    autofix_files = generate_auto_fix_snippets(domain, schema_res["product_data"])
-
     prod_name = schema_res["product_data"].get("name") or page_title
     extracted_price = f"{schema_res['product_data'].get('price', 'Inconnu')} {schema_res['product_data'].get('currency', 'EUR')}"
 
@@ -675,38 +805,41 @@ async def scan_url(req: ScanRequest):
         statusLabel=status_label,
         statusBadgeClass=badge_class,
         summary=summary,
+        brokenItems=broken_items,
+        rawJsonLd=raw_json_str,
+        fixedJsonLd=fixed_json_str,
         pillars={
             "crawl": PillarScore(
                 score=crawl_score,
-                weight="20%",
+                weight="30%",
                 status="Robots OK" if crawl_score >= 75 else "Friction / Bloqué",
                 label="Crawl & Bot Access",
                 details=crawl_details
             ),
             "schema": PillarScore(
                 score=schema_res["score"],
-                weight="25%",
+                weight="40%",
                 status=schema_res["status"],
                 label="Schema.org / JSON-LD",
                 details=schema_res["details"]
             ),
             "tokens": PillarScore(
                 score=semantic_res["score"],
-                weight="20%",
+                weight="30%",
                 status=semantic_res["status"],
                 label="Pureté Sémantique",
                 details=semantic_res["details"]
             ),
             "simulator": PillarScore(
                 score=sim_res["score"],
-                weight="20%",
+                weight="Simulation",
                 status=f"Risque {sim_res['hallucination_risk']}",
-                label="AI Buyer Simulator",
+                label="AI Buyer Simulator (Aperçu)",
                 details=sim_res["details"]
             ),
             "proto": PillarScore(
                 score=proto_score,
-                weight="15%",
+                weight="Protocoles",
                 status="llms.txt Présent" if proto_score >= 50 else "Absent",
                 label="Protocoles (llms.txt / MCP)",
                 details=proto_details
@@ -722,7 +855,9 @@ async def scan_url(req: ScanRequest):
         },
         autoFix=autofix_files,
         productData=schema_res["product_data"],
-        geminiLive=sim_res.get("geminiLive", False)
+        isWafBlocked=is_waf_blocked,
+        wafDetails=waf_details,
+        geminiLive=False
     )
 
 class SimQuestionRequest(BaseModel):

@@ -34,8 +34,80 @@ export class ScannerSimulator {
     this.protoScore = document.getElementById('pillar-score-proto');
     this.protoStatus = document.getElementById('pillar-status-proto');
 
+    // What's Broken & Inline Auto-Fix elements
+    this.headerScore = document.getElementById('header-score-number');
+    this.whatsBrokenList = document.getElementById('whats-broken-list');
+    this.brokenCountBadge = document.getElementById('broken-count-badge');
+    this.inlineCode = document.getElementById('inline-autofix-code');
+    this.tabBefore = document.getElementById('btn-tab-before');
+    this.tabAfter = document.getElementById('btn-tab-after');
+    this.btnCopyInline = document.getElementById('btn-copy-inline-fix');
+    this.currentInlineMode = 'after';
+
     this.isScanning = false;
     this.initEvents();
+  }
+
+  setInlineMode(mode) {
+    this.currentInlineMode = mode;
+    if (this.tabBefore) this.tabBefore.classList.toggle('active', mode === 'before');
+    if (this.tabAfter) this.tabAfter.classList.toggle('active', mode === 'after');
+
+    const data = window.__lastAuditData;
+    if (!data || !this.inlineCode) return;
+
+    if (mode === 'before') {
+      this.inlineCode.textContent = data.rawJsonLd || '<!-- Aucun balisage JSON-LD détecté sur la page scannée -->';
+      this.inlineCode.style.color = '#f87171';
+    } else {
+      const fixedCode = data.fixedJsonLd || data.autoFix?.schemaJson || '// JSON-LD réparé prêt à injecter';
+      this.inlineCode.textContent = fixedCode;
+      this.inlineCode.style.color = '#34d399';
+    }
+  }
+
+  async copyInlineCode() {
+    const data = window.__lastAuditData;
+    if (!data) return;
+    const codeToCopy = this.currentInlineMode === 'before' 
+      ? (data.rawJsonLd || '') 
+      : (data.fixedJsonLd || data.autoFix?.schemaJson || '');
+
+    if (!codeToCopy) return;
+
+    let success = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(codeToCopy);
+        success = true;
+      } else {
+        throw new Error("Clipboard API unavailable");
+      }
+    } catch (err) {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = codeToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-999999px";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        success = document.execCommand("copy");
+        document.body.removeChild(textarea);
+      } catch (fallbackErr) {
+        console.warn("Fallback copy failed:", fallbackErr);
+      }
+    }
+
+    if (success && this.btnCopyInline) {
+      const originalHtml = this.btnCopyInline.innerHTML;
+      this.btnCopyInline.innerHTML = '<i class="fas fa-check"></i> Code copié !';
+      this.btnCopyInline.style.background = 'var(--emerald-600)';
+      setTimeout(() => {
+        this.btnCopyInline.innerHTML = originalHtml;
+        this.btnCopyInline.style.background = 'var(--emerald-500)';
+      }, 2200);
+    }
   }
 
   initEvents() {
@@ -62,6 +134,32 @@ export class ScannerSimulator {
       });
     }
 
+    // Language Toggle (Task 2)
+    const langBtnEn = document.getElementById('lang-btn-en');
+    const langBtnFr = document.getElementById('lang-btn-fr');
+    const heroTitle = document.getElementById('hero-main-title');
+    const heroLead = document.getElementById('hero-main-lead');
+
+    if (langBtnEn && langBtnFr && heroTitle && heroLead) {
+      langBtnEn.addEventListener('click', () => {
+        langBtnEn.style.borderColor = 'var(--border-medium)';
+        langBtnEn.style.color = '#fff';
+        langBtnFr.style.borderColor = 'var(--border-subtle)';
+        langBtnFr.style.color = 'var(--text-muted)';
+        heroTitle.innerHTML = `Your products are invisible to AI buyers. <br><span class="gradient-text">Fix them.</span>`;
+        heroLead.textContent = `Get an instant, deterministic audit of how ChatGPT, Gemini and Claude see your store — then deploy clean JSON-LD and an llms.txt in one click. No AI judging your score. No guesswork.`;
+      });
+
+      langBtnFr.addEventListener('click', () => {
+        langBtnFr.style.borderColor = 'var(--border-medium)';
+        langBtnFr.style.color = '#fff';
+        langBtnEn.style.borderColor = 'var(--border-subtle)';
+        langBtnEn.style.color = 'var(--text-muted)';
+        heroTitle.innerHTML = `Vos produits sont invisibles pour les acheteurs IA. <br><span class="gradient-text">AgentReady les répare.</span>`;
+        heroLead.textContent = `Audit 100% fiable de la façon dont ChatGPT, Gemini et Claude voient votre boutique — correction déployable en un clic. Sans IA juge, sans spéculation.`;
+      });
+    }
+
     // Preset chips
     const chips = document.querySelectorAll('.preset-chip');
     chips.forEach(chip => {
@@ -73,6 +171,17 @@ export class ScannerSimulator {
         }
       });
     });
+
+    // Inline Auto-Fix Tabs & Copy
+    if (this.tabBefore) {
+      this.tabBefore.addEventListener('click', () => this.setInlineMode('before'));
+    }
+    if (this.tabAfter) {
+      this.tabAfter.addEventListener('click', () => this.setInlineMode('after'));
+    }
+    if (this.btnCopyInline) {
+      this.btnCopyInline.addEventListener('click', () => this.copyInlineCode());
+    }
   }
 
   async runScan(customUrl) {
@@ -230,6 +339,32 @@ export class ScannerSimulator {
   displayResults(data) {
     if (!data) return;
     window.__lastAuditData = data;
+
+    // Dégradation propre WAF / CSR (Task 4)
+    const wafCard = document.getElementById('waf-blocked-card');
+    const wafBlockerName = document.getElementById('waf-blocker-name');
+    const btnRetryWaf = document.getElementById('btn-retry-waf-scan');
+
+    if (btnRetryWaf) {
+      btnRetryWaf.onclick = () => {
+        const url = this.input ? this.input.value.trim() : '';
+        this.runScan(url);
+      };
+    }
+
+    if (data.isWafBlocked) {
+      if (this.resultsCard) this.resultsCard.classList.remove('active');
+      if (wafCard) {
+        wafCard.style.display = 'block';
+        if (wafBlockerName && data.wafDetails?.blocker) {
+          wafBlockerName.textContent = data.wafDetails.blocker;
+        }
+        wafCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    } else {
+      if (wafCard) wafCard.style.display = 'none';
+    }
 
     try {
       if (this.domainTitle) this.domainTitle.textContent = data.name || 'Boutique E-commerce';
@@ -398,6 +533,36 @@ export class ScannerSimulator {
         }
       }
 
+      // Populate What's Broken List (P0 Commando Feature)
+      if (this.whatsBrokenList) {
+        const items = data.brokenItems || [];
+        if (this.brokenCountBadge) {
+          const critCount = items.filter(i => i.severity === 'critical').length;
+          this.brokenCountBadge.textContent = `${items.length} point${items.length > 1 ? 's' : ''} d'impact détecté${items.length > 1 ? 's' : ''}`;
+          this.brokenCountBadge.style.color = critCount > 0 ? 'var(--rose-400)' : 'var(--emerald-400)';
+        }
+
+        this.whatsBrokenList.innerHTML = items.map(item => {
+          const isCrit = item.severity === 'critical';
+          const isWarn = item.severity === 'warning';
+          const icon = isCrit ? 'fa-times-circle' : (isWarn ? 'fa-exclamation-triangle' : 'fa-check-circle');
+          const color = isCrit ? 'var(--rose-400)' : (isWarn ? 'var(--amber-400)' : 'var(--emerald-400)');
+          const itemClass = isCrit ? '' : (isWarn ? 'warning' : 'info');
+          return `
+            <div class="whats-broken-item ${itemClass}">
+              <i class="fas ${icon} whats-broken-icon" style="color: ${color};"></i>
+              <div class="whats-broken-content">
+                <div class="whats-broken-title">${item.title}</div>
+                <div class="whats-broken-impact">${item.impact}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // Populate Inline Auto-Fix (Before / After)
+      this.setInlineMode('after');
+
       // Show Card
       if (this.resultsCard) {
         this.resultsCard.classList.add('active');
@@ -440,9 +605,16 @@ export class ScannerSimulator {
       count += increment;
       if (count >= targetScore) {
         this.scoreNumber.textContent = targetScore;
+        if (this.headerScore) {
+          this.headerScore.innerHTML = `${targetScore}<span style="font-size: 1rem; color: var(--text-muted);">/100</span>`;
+        }
         clearInterval(timer);
       } else {
-        this.scoreNumber.textContent = Math.floor(count);
+        const val = Math.floor(count);
+        this.scoreNumber.textContent = val;
+        if (this.headerScore) {
+          this.headerScore.innerHTML = `${val}<span style="font-size: 1rem; color: var(--text-muted);">/100</span>`;
+        }
       }
     }, stepTime);
   }
