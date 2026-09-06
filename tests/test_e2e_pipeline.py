@@ -934,9 +934,102 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertIsInstance(pdf_bytes, bytes)
         self.assertGreater(len(pdf_bytes), 1000)
 
+    def test_29_no_invented_data_in_autofix(self):
+        """Auto-fix certifié : aucune invention de prix (49€), stock (InStock), ni politiques fictives."""
+        # Cas 1 : page type example.com (aucun prix, aucun stock, aucun SKU)
+        example_prod = {
+            "name": "Example Domain",
+            "price": "Inconnu",
+            "sku": None,
+            "has_stock": None,
+            "has_shipping": False,
+            "has_return": False
+        }
+        snippets = server.generate_auto_fix_snippets("example.com", example_prod)
+        
+        # Le prix ne doit JAMAIS être 49.00
+        self.assertNotIn("49.00", snippets["schemaJson"])
+        self.assertNotIn("49.00", snippets["llmsTxt"])
+        self.assertIn('"price": ""', snippets["schemaJson"])
+        self.assertIn("Prix non spécifié", snippets["llmsTxt"])
+
+        # Pas de faux InStock inventé
+        self.assertNotIn("InStock", snippets["schemaJson"])
+        self.assertNotIn("OutOfStock", snippets["schemaJson"])
+
+        # Pas de fausse livraison gratuite ni retour 30j inventés
+        self.assertNotIn("shippingDetails", snippets["schemaJson"])
+        self.assertNotIn("hasMerchantReturnPolicy", snippets["schemaJson"])
+        self.assertNotIn("24-48h", snippets["llmsTxt"])
+
+        # Cas 2 : vrai produit avec prix et stock explicites
+        real_prod = {
+            "name": "Casque Audio Pro",
+            "price": "199.00",
+            "sku": "CASQUE-001",
+            "has_stock": True,
+            "has_shipping": True,
+            "has_return": True
+        }
+        real_snippets = server.generate_auto_fix_snippets("audio-shop.com", real_prod)
+        self.assertIn('"price": "199.00"', real_snippets["schemaJson"])
+        self.assertIn("https://schema.org/InStock", real_snippets["schemaJson"])
+        self.assertIn("shippingDetails", real_snippets["schemaJson"])
+        self.assertIn("hasMerchantReturnPolicy", real_snippets["schemaJson"])
+        self.assertIn("Prix 199.00 EUR TTC", real_snippets["llmsTxt"])
+
+    def test_30_wikipedia_and_airbnb_robots_txt(self):
+        """Robots.txt complexes : Wikipedia et Airbnb ne doivent PAS être signalés bloqués."""
+        # Extrait fidèle du robots.txt de Wikipedia :
+        # Contient des Disallow: / ciblés sur des bots spécifiques (OrthoSeller, etc.)
+        # mais n'interdit pas l'ensemble des crawlers ni les bots IA
+        wiki_robots = """
+# Wikipedia robots.txt snippet
+User-agent: OrthoSeller
+Disallow: /
+
+User-agent: BadBot
+Disallow: /
+
+User-agent: *
+Disallow: /w/
+Disallow: /api/
+Disallow: /trap/
+Allow: /
+"""
+        disallowed, is_global = server.parse_robots_txt(wiki_robots)
+        self.assertFalse(is_global, "Wikipedia ne doit pas être considéré comme bloqué globalement")
+        self.assertEqual(disallowed, [], "Aucun bot IA cible ne doit être bloqué sur Wikipedia")
+
+        # Extrait fidèle du robots.txt d'Airbnb :
+        # ImagesiftBot est bloqué avec Disallow: /, GPTBot a des routes spécifiques
+        # mais ni * ni GPTBot n'ont Disallow: / global
+        airbnb_robots = """
+User-agent: GPTBot
+Disallow: /account
+Disallow: /my_listings
+Disallow: /reservation
+Disallow: /rooms/*/photos
+Allow: /calendar/ical/
+
+User-agent: ImagesiftBot
+Allow: /calendar/ical/
+Disallow: /
+
+User-agent: *
+Disallow: /500
+Disallow: /account
+Disallow: /api/v1/trebuchet
+"""
+        disallowed_ab, is_global_ab = server.parse_robots_txt(airbnb_robots)
+        self.assertFalse(is_global_ab, "Airbnb ne doit pas être bloqué globalement")
+        self.assertNotIn("gptbot", disallowed_ab, "GPTBot n'est pas bloqué globalement sur Airbnb")
+        self.assertEqual(disallowed_ab, [])
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

@@ -1,6 +1,6 @@
 name: CI Suite
 
-# Exécute automatiquement la suite de tests complète (28 tests unittest) à chaque
+# Exécute automatiquement la suite de tests complète (30 tests unittest) à chaque
 # push/PR sur n'importe quelle branche — vérification de non-régression continue.
 
 on:

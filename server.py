@@ -866,14 +866,16 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
         name = "Produit Boutique"
     name = str(name).strip().replace('"', '\\"')
 
-    # Prix : garantir un nombre réel et jamais "None" ou "Inconnu"
+    # Prix : ne JAMAIS inventer un prix fictif (49.00€) pour éviter la publication de données erronées
     raw_price = prod.get("price")
+    has_real_price = False
+    price_val = ""
     if raw_price and str(raw_price).strip() not in ("Inconnu", "None", "null", "undefined", ""):
         clean_p = str(raw_price).split()[0].replace(",", ".")
         m = re.search(r"[0-9]+(?:\.[0-9]{1,2})?", clean_p)
-        price = m.group(0) if m else "49.00"
-    else:
-        price = "49.00"
+        if m:
+            price_val = m.group(0)
+            has_real_price = True
 
     # Devise standard
     raw_curr = prod.get("currency")
@@ -896,17 +898,35 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
             sku_hash = hashlib.sha256(name.encode("utf-8")).hexdigest()[:8].upper()
             sku = f"{clean_domain.split('.')[0].upper()[:4]}-{sku_hash}"
 
-    llms_txt = f"""# LLMS.txt pour {clean_domain}
-# Specification: https://llmstxt.org/ v1.0
-# Agentic Commerce Index
+    # Disponibilité du stock : ne pas forcer InStock si le stock est inconnu ou non vérifié
+    stock_lines = []
+    stock_status = prod.get("has_stock")
+    if stock_status is True:
+        stock_lines.append('    "availability": "https://schema.org/InStock",')
+    elif stock_status is False and prod.get("stock_source"):
+        stock_lines.append('    "availability": "https://schema.org/OutOfStock",')
 
-> {name} disponible sur {clean_domain}.
+    # Frais & conditions de livraison : n'inclure que si confirmés dans les données de crawl
+    shipping_lines = []
+    if prod.get("has_shipping"):
+        shipping_lines.append('    "shippingDetails": {\n      "@type": "OfferShippingDetails",\n      "shippingRate": {\n        "@type": "MonetaryAmount",\n        "value": "0.00",\n        "currency": "' + currency + '"\n      }\n    },')
 
-## Fiches Produits & Spécifications Déterministes
-- [{name}](/products/{sku.lower()}): Prix {price} {currency} TTC. Expédition garantie sous 24-48h.
-- Conditions de retour: 30 jours satisfait ou remboursé.
-- Support et contact agents: contact@{clean_domain}
-"""
+    # Politique de retour : n'inclure que si confirmée
+    return_lines = []
+    if prod.get("has_return"):
+        return_lines.append('    "hasMerchantReturnPolicy": {\n      "@type": "MerchantReturnPolicy",\n      "merchantReturnDays": 30,\n      "returnFees": "https://schema.org/FreeReturn"\n    },')
+
+    offer_fields = []
+    if has_real_price:
+        offer_fields.append(f'    "price": "{price_val}",')
+    else:
+        offer_fields.append('    "price": "",')
+    offer_fields.append(f'    "priceCurrency": "{currency}",')
+    offer_fields.extend(stock_lines)
+    offer_fields.extend(shipping_lines)
+    offer_fields.extend(return_lines)
+
+    offer_block_str = "\n".join(offer_fields).rstrip(",")
 
     json_ld = f"""<script type="application/ld+json">
 {{
@@ -916,25 +936,38 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
   "sku": "{sku}",
   "offers": {{
     "@type": "Offer",
-    "price": "{price}",
-    "priceCurrency": "{currency}",
-    "availability": "https://schema.org/InStock",
-    "shippingDetails": {{
-      "@type": "OfferShippingDetails",
-      "shippingRate": {{
-        "@type": "MonetaryAmount",
-        "value": "0.00",
-        "currency": "{currency}"
-      }}
-    }},
-    "hasMerchantReturnPolicy": {{
-      "@type": "MerchantReturnPolicy",
-      "merchantReturnDays": 30,
-      "returnFees": "https://schema.org/FreeReturn"
-    }}
+{offer_block_str}
   }}
 }}
 </script>"""
+
+    # Spécifications honnêtes dans llms.txt
+    if has_real_price:
+        price_spec = f"Prix {price_val} {currency} TTC."
+    else:
+        price_spec = "Prix non spécifié sur cette page (consulter le site marchand)."
+
+    if prod.get("has_shipping"):
+        shipping_spec = "Expédition garantie selon conditions du site."
+    else:
+        shipping_spec = f"Conditions de livraison: voir politique du vendeur sur {clean_domain}."
+
+    if prod.get("has_return"):
+        return_spec = "Conditions de retour: politique standard commerçant."
+    else:
+        return_spec = f"Conditions de retour: voir conditions générales de vente sur {clean_domain}."
+
+    llms_txt = f"""# LLMS.txt pour {clean_domain}
+# Specification: https://llmstxt.org/ v1.0
+# Agentic Commerce Index
+
+> {name} disponible sur {clean_domain}.
+
+## Fiches Produits & Spécifications Déterministes
+- [{name}](/products/{sku.lower()}): {price_spec} {shipping_spec}
+- {return_spec}
+- Support et contact agents: contact@{clean_domain}
+"""
 
     mcp_config = f"""{{
   "mcpServers": {{

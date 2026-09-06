@@ -226,21 +226,6 @@ export class ScannerSimulator {
       return;
     }
 
-    // Check if it's a known preset alias
-    const lower = customUrl.toLowerCase();
-    if (lower.includes('mystore') || lower.includes('vintage')) {
-      this.runScanWithPreset('blind');
-      return;
-    }
-    if (lower.includes('urban') || lower.includes('streetwear')) {
-      this.runScanWithPreset('friction');
-      return;
-    }
-    if (lower.includes('sonus') || lower.includes('ready')) {
-      this.runScanWithPreset('ready');
-      return;
-    }
-
     // Real Live URL Scan via FastAPI Backend (relative URL works in local & Railway)
     this.isScanning = true;
     this.lastScannedUrl = customUrl.trim();
