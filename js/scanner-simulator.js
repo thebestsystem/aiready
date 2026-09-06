@@ -1,0 +1,401 @@
+/* ==========================================================================
+   AGENTREADY - Scanner Simulator Engine
+   ========================================================================== */
+
+import { AUDIT_PRESETS } from './mock-data.js';
+
+export class ScannerSimulator {
+  constructor() {
+    this.form = document.getElementById('scanner-form');
+    this.input = document.getElementById('scanner-url-input');
+    this.progressBox = document.getElementById('scan-progress-box');
+    this.progressBar = document.getElementById('scan-progress-fill');
+    this.progressStatus = document.getElementById('scan-progress-text');
+    this.stepsList = document.querySelectorAll('.scan-step-item');
+    this.resultsCard = document.getElementById('audit-results-card');
+    
+    // Result elements
+    this.scoreNumber = document.getElementById('gauge-score-val');
+    this.gaugeCircle = document.getElementById('gauge-circle-fill');
+    this.statusBadge = document.getElementById('audit-status-badge');
+    this.domainTitle = document.getElementById('audit-domain-title');
+    this.domainUrl = document.getElementById('audit-domain-url');
+    this.auditSummary = document.getElementById('audit-summary-text');
+    
+    // Pillars elements
+    this.crawlScore = document.getElementById('pillar-score-crawl');
+    this.crawlStatus = document.getElementById('pillar-status-crawl');
+    this.schemaScore = document.getElementById('pillar-score-schema');
+    this.schemaStatus = document.getElementById('pillar-status-schema');
+    this.tokensScore = document.getElementById('pillar-score-tokens');
+    this.tokensStatus = document.getElementById('pillar-status-tokens');
+    this.simScore = document.getElementById('pillar-score-sim');
+    this.simStatus = document.getElementById('pillar-status-sim');
+    this.protoScore = document.getElementById('pillar-score-proto');
+    this.protoStatus = document.getElementById('pillar-status-proto');
+
+    this.isScanning = false;
+    this.initEvents();
+  }
+
+  initEvents() {
+    const handleScanTrigger = (e) => {
+      if (e) e.preventDefault();
+      const url = this.input ? this.input.value.trim() : '';
+      this.runScan(url);
+    };
+
+    if (this.form) {
+      this.form.addEventListener('submit', handleScanTrigger);
+    }
+
+    const btn = document.getElementById('btn-run-scan');
+    if (btn) {
+      btn.addEventListener('click', handleScanTrigger);
+    }
+
+    if (this.input) {
+      this.input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          handleScanTrigger(e);
+        }
+      });
+    }
+
+    // Preset chips
+    const chips = document.querySelectorAll('.preset-chip');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const presetKey = chip.getAttribute('data-preset');
+        if (AUDIT_PRESETS[presetKey]) {
+          if (this.input) this.input.value = AUDIT_PRESETS[presetKey].domain;
+          this.runScanWithPreset(presetKey);
+        }
+      });
+    });
+  }
+
+  async runScan(customUrl) {
+    if (this.isScanning) return;
+    if (!customUrl) {
+      this.runScanWithPreset('blind');
+      return;
+    }
+
+    // Check if it's a known preset alias
+    const lower = customUrl.toLowerCase();
+    if (lower.includes('mystore') || lower.includes('vintage')) {
+      this.runScanWithPreset('blind');
+      return;
+    }
+    if (lower.includes('urban') || lower.includes('streetwear')) {
+      this.runScanWithPreset('friction');
+      return;
+    }
+    if (lower.includes('sonus') || lower.includes('ready')) {
+      this.runScanWithPreset('ready');
+      return;
+    }
+
+    // Real Live URL Scan via FastAPI Backend
+    this.isScanning = true;
+    this.startProgressUI();
+
+    try {
+      const geminiKey = localStorage.getItem('agentready_gemini_key') || '';
+      const response = await fetch('http://127.0.0.1:8000/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          url: customUrl,
+          geminiApiKey: geminiKey.trim() || undefined
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const realData = await response.json();
+      this.completeProgressUI(() => {
+        this.displayResults(realData);
+        // Dispatch event for auto-fix code tabs
+        window.dispatchEvent(new CustomEvent('agentready:scan-complete', { detail: realData }));
+        this.isScanning = false;
+      });
+
+    } catch (err) {
+      console.warn('Backend scan unavailable or failed, falling back to simulated scan:', err);
+      // Graceful fallback to heuristic simulation
+      const fallbackData = { ...AUDIT_PRESETS['friction'] };
+      fallbackData.domain = customUrl;
+      fallbackData.name = `Boutique : ${customUrl.replace(/^https?:\/\//, '').split('/')[0]}`;
+      fallbackData.summary += ' (Scan en mode secours déterministe)';
+      
+      this.completeProgressUI(() => {
+        this.displayResults(fallbackData);
+        this.isScanning = false;
+      });
+    }
+  }
+
+  startProgressUI() {
+    this.resultsCard.classList.remove('active');
+    this.progressBox.style.display = 'block';
+    this.progressBar.style.width = '0%';
+    this.stepsList.forEach(s => {
+      s.classList.remove('active', 'done');
+      const icon = s.querySelector('i');
+      if (icon) icon.className = 'fas fa-circle-notch fa-spin';
+    });
+
+    // Animate first 3 steps while waiting for network
+    setTimeout(() => {
+      this.progressStatus.textContent = "1/5 Directives robots.txt & détection WAF...";
+      this.progressBar.style.width = "25%";
+      if (this.stepsList[0]) this.stepsList[0].classList.add('active');
+    }, 100);
+
+    setTimeout(() => {
+      if (this.stepsList[0]) {
+        this.stepsList[0].classList.replace('active', 'done');
+        this.stepsList[0].querySelector('i').className = 'fas fa-check-circle';
+      }
+      this.progressStatus.textContent = "2/5 Extraction DOM & parsing Schema.org JSON-LD...";
+      this.progressBar.style.width = "50%";
+      if (this.stepsList[1]) this.stepsList[1].classList.add('active');
+    }, 450);
+
+    setTimeout(() => {
+      if (this.stepsList[1]) {
+        this.stepsList[1].classList.replace('active', 'done');
+        this.stepsList[1].querySelector('i').className = 'fas fa-check-circle';
+      }
+      this.progressStatus.textContent = "3/5 Pureté sémantique & AI Buyer Simulation...";
+      this.progressBar.style.width = "75%";
+      if (this.stepsList[2]) this.stepsList[2].classList.add('active');
+    }, 900);
+  }
+
+  completeProgressUI(callback) {
+    this.progressBar.style.width = "100%";
+    this.progressStatus.textContent = "5/5 Synthèse et génération des protocoles...";
+    this.stepsList.forEach(s => {
+      s.classList.remove('active');
+      s.classList.add('done');
+      const icon = s.querySelector('i');
+      if (icon) icon.className = 'fas fa-check-circle';
+    });
+
+    setTimeout(() => {
+      this.progressBox.style.display = 'none';
+      try {
+        if (callback) callback();
+      } catch (err) {
+        console.error("Erreur lors de l'affichage des résultats :", err);
+      } finally {
+        this.isScanning = false;
+      }
+    }, 350);
+  }
+
+  runScanWithPreset(presetKey) {
+    if (this.isScanning) return;
+    this.isScanning = true;
+
+    const data = { ...AUDIT_PRESETS[presetKey] };
+
+    this.startProgressUI();
+    setTimeout(() => {
+      this.completeProgressUI(() => {
+        this.displayResults(data);
+      });
+    }, 1000);
+  }
+
+  displayResults(data) {
+    if (!data) return;
+    window.__lastAuditData = data;
+
+    try {
+      if (this.domainTitle) this.domainTitle.textContent = data.name || 'Boutique E-commerce';
+      if (this.domainUrl) this.domainUrl.textContent = data.domain || '';
+      if (this.auditSummary) this.auditSummary.textContent = data.summary || 'Analyse terminée.';
+
+      // Status Badge
+      if (this.statusBadge) {
+        this.statusBadge.className = `badge ${data.statusBadgeClass || 'badge-friction'}`;
+        this.statusBadge.innerHTML = `<span class="pulse-dot"></span> ${data.statusLabel || 'En analyse'}`;
+      }
+
+      // Safe access to pillars
+      const p = data.pillars || {};
+      const crawl = p.crawl || { score: 0, status: '--' };
+      const schema = p.schema || { score: 0, status: '--' };
+      const tokens = p.tokens || { score: 0, status: '--' };
+      const sim = p.simulator || { score: 0, status: '--' };
+      const proto = p.proto || p.protocols || { score: 0, status: '--' };
+
+      // Affichage instantané de la photo de l'article scanné sans stockage serveur
+      const thumbWrapper = document.getElementById('audit-product-img-wrapper');
+      const thumbImg = document.getElementById('audit-product-thumb');
+      const prodImgUrl = data.image || data.productData?.image;
+
+      if (thumbWrapper && thumbImg) {
+        if (prodImgUrl) {
+          thumbImg.src = prodImgUrl;
+          thumbImg.onerror = () => {
+            thumbWrapper.style.display = 'none';
+          };
+          thumbWrapper.style.display = 'block';
+        } else {
+          thumbWrapper.style.display = 'none';
+        }
+      }
+
+      // Synchronisation complète de la VUE HUMAINE (Design & Branding)
+      const humanProductImg = document.querySelector('.human-product-img');
+      const humanTitle = document.getElementById('human-product-title') || document.querySelector('.human-title');
+      const humanBrand = document.getElementById('human-product-brand');
+      const humanPrice = document.getElementById('human-product-price');
+      const humanDesc = document.getElementById('human-product-desc');
+
+      if (prodImgUrl && humanProductImg) {
+        humanProductImg.src = prodImgUrl;
+        humanProductImg.onerror = () => {
+          humanProductImg.src = 'assets/product_human_view.jpg';
+        };
+      }
+
+      const prodName = data.name || 'Produit E-commerce';
+      if (humanTitle) humanTitle.textContent = prodName;
+
+      const domainClean = (data.domain || '').replace(/^https?:\/\//, '').split('/')[0];
+      if (humanBrand) humanBrand.textContent = data.productData?.brand || domainClean || 'Boutique E-commerce';
+
+      if (humanPrice) {
+        const rawPrice = data.productData?.price;
+        const currency = data.productData?.currency || 'EUR';
+        const displayPrice = (rawPrice && rawPrice !== 'Inconnu') ? `${rawPrice} ${currency}` : 'Prix affiché sur le site';
+        const isStockOk = Boolean(data.productData?.has_stock);
+        humanPrice.innerHTML = `${displayPrice} <span style="font-size: 0.9rem; color: ${isStockOk ? 'var(--emerald-400)' : 'var(--amber-400)'}; font-weight: 600;">${isStockOk ? '• En Stock' : '• Stock à vérifier'}</span>`;
+      }
+
+      if (humanDesc) {
+        humanDesc.textContent = `Fiche produit scannée en direct sur ${domainClean}. ` + (data.summary || '');
+      }
+
+      if (this.crawlScore) this.crawlScore.textContent = `${crawl.score}/100`;
+      if (this.crawlStatus) this.crawlStatus.textContent = crawl.status;
+
+      if (this.schemaScore) this.schemaScore.textContent = `${schema.score}/100`;
+      if (this.schemaStatus) this.schemaStatus.textContent = schema.status;
+
+      if (this.tokensScore) this.tokensScore.textContent = `${tokens.score}/100`;
+      if (this.tokensStatus) this.tokensStatus.textContent = tokens.status;
+
+      if (this.simScore) this.simScore.textContent = `${sim.score}/100`;
+      if (this.simStatus) this.simStatus.textContent = sim.status;
+
+      const geminiPillarBadge = document.getElementById('pillar-gemini-badge');
+      if (geminiPillarBadge) {
+        if (data.geminiLive) {
+          geminiPillarBadge.innerHTML = '<i class="fas fa-brain" style="color: #34d399;"></i> Gemini 3.6 Live';
+          geminiPillarBadge.style.color = 'var(--emerald-400)';
+        } else {
+          geminiPillarBadge.innerHTML = '<i class="fas fa-microchip"></i> IA Déterministe';
+          geminiPillarBadge.style.color = 'var(--cyan-400)';
+        }
+      }
+
+      // Save audited product data for interactive simulator
+      window.__currentAuditedProduct = data.productData || { name: data.name };
+      window.dispatchEvent(new CustomEvent('agentready:product-updated', { detail: window.__currentAuditedProduct }));
+
+      if (this.protoScore) this.protoScore.textContent = `${proto.score}/100`;
+      if (this.protoStatus) this.protoStatus.textContent = proto.status;
+
+      // Synchronisation complète de la VUE AGENT IA (Flux Brut & Schéma)
+      const ai = data.aiView || {};
+      const terminalName = document.getElementById('ai-inspect-name');
+      const terminalPrice = document.getElementById('ai-inspect-price');
+      const terminalStock = document.getElementById('ai-inspect-stock');
+      const terminalShipping = document.getElementById('ai-inspect-shipping');
+      const terminalTokens = document.getElementById('ai-inspect-tokens');
+      const terminalPurity = document.getElementById('ai-inspect-purity');
+      const terminalRisk = document.getElementById('ai-inspect-risk');
+      const terminalBot = document.getElementById('ai-inspect-bot');
+      const terminalVerdict = document.getElementById('ai-inspect-verdict');
+
+      if (terminalName) terminalName.textContent = prodName;
+      if (terminalPrice) terminalPrice.textContent = ai.extractedPrice || '--';
+      if (terminalStock) terminalStock.textContent = ai.stockStatus || '--';
+      if (terminalShipping) terminalShipping.textContent = ai.shippingTerms || '--';
+      if (terminalTokens) terminalTokens.textContent = ai.tokens || '--';
+      if (terminalRisk) terminalRisk.textContent = ai.hallucinationRisk || '--';
+      if (terminalBot) terminalBot.textContent = ai.botAccess || '--';
+
+      if (terminalPurity) {
+        const noise = data.pillars?.tokens?.noise_pct ?? 78;
+        const purity = Math.max(1, 100 - noise);
+        terminalPurity.textContent = `${purity}% utile (Bruit: ${noise}%)`;
+        terminalPurity.style.color = purity >= 30 ? 'var(--emerald-400)' : 'var(--amber-400)';
+      }
+
+      if (terminalVerdict) {
+        if (data.score >= 70) {
+          terminalVerdict.innerHTML = `<span class="ai-tag-ok">CONFIRMÉ (Score: ${data.score}/100)</span> : Métadonnées certifiées, conversion IA favorable.`;
+        } else {
+          terminalVerdict.innerHTML = `<span class="ai-tag-missing">DISQUALIFIÉ (Score: ${data.score}/100)</span> : Risque d'abandon ou hallucination d'achat IA.`;
+        }
+      }
+
+      // Show Card
+      if (this.resultsCard) {
+        this.resultsCard.classList.add('active');
+      }
+
+      // Animate Gauge & Count Up
+      this.animateGauge(data.score || 0);
+
+      // Scroll to results smoothly
+      if (this.resultsCard) {
+        this.resultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } catch (err) {
+      console.error("Erreur dans displayResults :", err);
+    }
+  }
+
+  animateGauge(targetScore) {
+    const circumference = 251.2; // 2 * pi * r (r = 40)
+    const targetOffset = circumference - (circumference * targetScore) / 100;
+
+    // Set color based on score
+    if (targetScore >= 80) {
+      this.gaugeCircle.style.stroke = 'var(--emerald-500)';
+    } else if (targetScore >= 50) {
+      this.gaugeCircle.style.stroke = 'var(--amber-500)';
+    } else {
+      this.gaugeCircle.style.stroke = 'var(--rose-500)';
+    }
+
+    this.gaugeCircle.style.strokeDashoffset = targetOffset;
+
+    // Counter animation
+    let count = 0;
+    const duration = 1000;
+    const stepTime = 20;
+    const increment = targetScore / (duration / stepTime);
+
+    const timer = setInterval(() => {
+      count += increment;
+      if (count >= targetScore) {
+        this.scoreNumber.textContent = targetScore;
+        clearInterval(timer);
+      } else {
+        this.scoreNumber.textContent = Math.floor(count);
+      }
+    }, stepTime);
+  }
+}

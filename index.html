@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentReady 🤖 | Le scanner d'audit et d'optimisation pour le Commerce Agentique</title>
+  <meta name="description" content="Votre boutique e-commerce est-elle invisible pour les agents IA ? Auditez, simulez et optimisez vos fiches produits pour ChatGPT Search, Perplexity Shopping, Gemini et les acheteurs autonomes.">
+  
+  <!-- OpenGraph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AgentReady | Le Google Lighthouse du Commerce Agentique">
+  <meta property="og:description" content="Testez instantanément si vos produits sont achetables par ChatGPT, Perplexity, Gemini et les agents IA autonomes.">
+  <meta property="og:image" content="assets/product_human_view.jpg">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+
+  <!-- Grid Background Deco -->
+  <div class="bg-grid-pattern" aria-hidden="true"></div>
+
+  <!-- ======================================================================
+       1. NAVIGATION BAR
+       ====================================================================== -->
+  <header class="navbar">
+    <div class="container">
+      <a href="#" class="nav-brand">
+        <div class="brand-icon">
+          <i class="fas fa-robot"></i>
+        </div>
+        <span>Agent<span class="gradient-text-glow">Ready</span></span>
+      </a>
+
+      <nav>
+        <ul class="nav-menu">
+          <li><a href="#scanner" class="nav-link">Scanner</a></li>
+          <li><a href="#split-screen" class="nav-link">Human vs AI</a></li>
+          <li><a href="#pillars" class="nav-link">5 Piliers d'Audit</a></li>
+          <li><a href="#simulator" class="nav-link">Simulateur Gemini</a></li>
+          <li><a href="#autofix" class="nav-link">Auto-Fix & MCP</a></li>
+          <li><a href="#pricing" class="nav-link">Tarifs</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-cta-group" style="display: flex; gap: 0.75rem; align-items: center;">
+        <button id="btn-open-gemini-modal" class="btn btn-secondary btn-sm" title="Google Gemini 3.6 Flash - Statut et Clé API">
+          <i class="fas fa-brain" style="color: #60a5fa;"></i>
+          <span id="gemini-nav-status">Gemini IA</span>
+        </button>
+        <a href="#scanner" class="btn btn-primary btn-sm">
+          <i class="fas fa-bolt"></i> Audit Gratuit
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ======================================================================
+       2. HERO SECTION & LIVE SCANNER LEAD MAGNET
+       ====================================================================== -->
+  <section class="section hero-section" id="scanner">
+    <div class="container">
+      
+      <div class="hero-pill-wrapper animate-fade-in">
+        <span class="badge badge-cyan">
+          <span class="pulse-dot"></span> Agentic Web Index 2026 • Perplexity, ChatGPT & Gemini Ready
+        </span>
+      </div>
+
+      <h1 class="hero-title animate-slide-up">
+        Votre boutique e-commerce est-elle <br>
+        <span class="gradient-text">invisible pour les agents IA ?</span>
+      </h1>
+
+      <p class="lead animate-fade-in">
+        Plus de <strong>85% des boutiques en ligne</strong> échouent à convertir les agents acheteurs autonomes en raison de scripts bloquants et de microdonnées incomplètes. Testez votre score de préparation agentique en 15 secondes.
+      </p>
+
+      <!-- The Scanner Box -->
+      <div class="scanner-card">
+        <form id="scanner-form" class="scanner-form">
+          <div class="scanner-input-wrapper">
+            <i class="fas fa-globe scanner-input-icon"></i>
+            <input 
+              type="text" 
+              id="scanner-url-input" 
+              class="scanner-input" 
+              placeholder="Entrez l'URL de votre boutique ou d'une fiche produit (ex: ma-boutique.com/produit/123)"
+              autocomplete="off"
+            >
+          </div>
+          <button type="submit" class="btn btn-primary scanner-btn" id="btn-run-scan">
+            <i class="fas fa-search-dollar"></i> Scanner mon URL
+          </button>
+        </form>
+
+        <!-- Preset Chips -->
+        <div class="preset-chips">
+          <span>Tester un exemple instantané :</span>
+          <button type="button" class="preset-chip" data-preset="blind">
+            🔴 Boutique Non-Optimisée (Score 38)
+          </button>
+          <button type="button" class="preset-chip" data-preset="friction">
+            🟡 WooCommerce Standard (Score 64)
+          </button>
+          <button type="button" class="preset-chip" data-preset="ready">
+            🟢 Fiche Optimisée AgentReady (Score 96)
+          </button>
+        </div>
+
+        <!-- Scan Progress Animation Box -->
+        <div id="scan-progress-box" class="scan-progress-box">
+          <div class="scan-progress-header">
+            <span id="scan-progress-text">Analyse en cours...</span>
+            <span class="radar-indicator"><i class="fas fa-circle-notch fa-spin"></i> Simulation active</span>
+          </div>
+          <div class="scan-progress-bar-bg">
+            <div id="scan-progress-fill" class="scan-progress-bar-fill"></div>
+          </div>
+          <ul class="scan-steps-list">
+            <li class="scan-step-item" id="step-0"><i class="fas fa-circle-notch fa-spin"></i> 1. Robots.txt & WAF</li>
+            <li class="scan-step-item" id="step-1"><i class="fas fa-circle-notch fa-spin"></i> 2. JSON-LD Schema.org</li>
+            <li class="scan-step-item" id="step-2"><i class="fas fa-circle-notch fa-spin"></i> 3. Pureté & Tokens</li>
+            <li class="scan-step-item" id="step-3"><i class="fas fa-circle-notch fa-spin"></i> 4. Simulateur Gemini</li>
+            <li class="scan-step-item" id="step-4"><i class="fas fa-circle-notch fa-spin"></i> 5. Protocoles MCP</li>
+          </ul>
+        </div>
+
+        <!-- Interactive Audit Results Card -->
+        <div id="audit-results-card" class="audit-results-card">
+          <div class="audit-header-flex">
+            <div style="display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
+              <div id="audit-product-img-wrapper" style="width: 84px; height: 84px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-medium); background: var(--bg-surface-elevated); flex-shrink: 0; display: none; box-shadow: var(--shadow-sm);">
+                <img id="audit-product-thumb" src="" alt="Photo de l'article scanné" style="width: 100%; height: 100%; object-fit: cover;" referrerpolicy="no-referrer" loading="lazy">
+              </div>
+              <div class="store-info">
+                <span id="audit-status-badge" class="badge badge-blind">
+                  <span class="pulse-dot"></span> Agent Blind
+                </span>
+                <h3 id="audit-domain-title">MyStore Fashion (Shopify Standard)</h3>
+                <div id="audit-domain-url" class="store-url-badge">mystore-vintage.com/products/noise-canceling-nc700</div>
+              </div>
+            </div>
+
+            <div class="gauge-wrapper">
+              <div class="gauge-svg-container">
+                <svg width="96" height="96" viewBox="0 0 96 96">
+                  <circle class="gauge-circle-bg" cx="48" cy="48" r="40"></circle>
+                  <circle id="gauge-circle-fill" class="gauge-circle-fill" cx="48" cy="48" r="40"></circle>
+                </svg>
+                <div class="gauge-score-text">
+                  <span id="gauge-score-val">0</span>
+                  <span class="gauge-max">/ 100</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Alert -->
+          <p id="audit-summary-text" style="margin-bottom: 1.5rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+            Analyse des vulnérabilités agentiques terminée.
+          </p>
+
+          <!-- 5 Pillars Mini-Grid -->
+          <div class="pillars-mini-grid">
+            <div class="pillar-mini-card">
+              <div class="pillar-mini-title">1. Crawl & Bot Access</div>
+              <div class="pillar-mini-score" id="pillar-score-crawl">--</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-crawl">--</div>
+            </div>
+            <div class="pillar-mini-card">
+              <div class="pillar-mini-title">2. Schema.org / JSON-LD</div>
+              <div class="pillar-mini-score" id="pillar-score-schema">--</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-schema">--</div>
+            </div>
+            <div class="pillar-mini-card">
+              <div class="pillar-mini-title">3. Tokens & DOM</div>
+              <div class="pillar-mini-score" id="pillar-score-tokens">--</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-tokens">--</div>
+            </div>
+            <div class="pillar-mini-card">
+              <div class="pillar-mini-title">4. AI Buyer Simulator</div>
+              <div class="pillar-mini-score" id="pillar-score-sim">--</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-sim">--</div>
+              <div id="pillar-gemini-badge" style="font-size: 0.68rem; color: var(--cyan-400); margin-top: 0.2rem;">
+                <i class="fas fa-brain"></i> Gemini Flash
+              </div>
+            </div>
+            <div class="pillar-mini-card">
+              <div class="pillar-mini-title">5. MCP & llms.txt</div>
+              <div class="pillar-mini-score" id="pillar-score-proto">--</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-proto">--</div>
+            </div>
+          </div>
+
+          <!-- Actions footer -->
+          <div class="audit-actions">
+            <button type="button" class="btn btn-primary trigger-pdf-modal">
+              <i class="fas fa-file-pdf"></i> Télécharger le rapport complet PDF (5 pages)
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-share-audit">
+              <i class="fas fa-share-alt"></i> Partager l'audit
+            </button>
+            <a href="#autofix" class="btn btn-secondary">
+              <i class="fas fa-wrench"></i> Voir les correctifs 1-Clic
+            </a>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       3. SPLIT-SCREEN COMPARATOR : HUMAN VIEW vs AI AGENT VIEW
+       ====================================================================== -->
+  <section class="section comparator-section" id="split-screen">
+    <div class="container">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Comparateur Révélation Visuelle</span>
+        <h2 class="section-title">Ce qu'un Humain voit <span class="gradient-text">vs</span> Ce que l'IA extrait</h2>
+        <p class="lead">
+          Déplacez le curseur pour visualiser en direct le gouffre entre le design visuel de votre site et le flux textuel brut dégradé reçu par les LLMs.
+        </p>
+      </div>
+
+      <div class="split-viewer-container" id="split-viewer-box">
+        
+        <!-- HUMAN VIEW (Left/Underneath) -->
+        <div class="viewer-side viewer-human">
+          <div class="viewer-content-human">
+            <div class="human-store-mockup">
+              <img src="assets/product_human_view.jpg" alt="Fiche produit Human View" class="human-product-img">
+              <div class="human-product-details">
+                <div class="human-brand" id="human-product-brand">Sonus Audio Systems</div>
+                <h3 class="human-title" id="human-product-title">Sonus NC-700 Matte Black</h3>
+                <div class="human-reviews">
+                  <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i>
+                  <span>4.9 / 5 (Avis clients boutique)</span>
+                </div>
+                <div class="human-price" id="human-product-price">
+                  249.00 € <span style="font-size: 0.9rem; color: var(--emerald-400); font-weight: 600;">En Stock • Expédition 24h</span>
+                </div>
+                <p id="human-product-desc" style="color: var(--text-secondary); margin-bottom: 1.5rem; max-width: 480px; font-size: 0.95rem;">
+                  Casque supra-aural premium avec réduction active du bruit adaptative, transducteurs 40mm en titane et 40 heures d'autonomie avec recharge rapide USB-C.
+                </p>
+                <div style="display: flex; gap: 1rem;">
+                  <button class="human-btn-buy"><i class="fas fa-shopping-bag"></i> Ajouter au panier</button>
+                  <button class="btn btn-secondary"><i class="far fa-heart"></i> Favoris</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <span class="viewer-label viewer-label-human">
+            <i class="fas fa-eye"></i> Vue Humaine (Design & Branding)
+          </span>
+        </div>
+
+        <!-- AI AGENT VIEW (Right Overlay) -->
+        <div class="viewer-side viewer-ai" id="viewer-ai-side">
+          <div class="viewer-content-ai">
+            <div class="ai-store-mockup">
+              
+              <div class="ai-terminal-header">
+                <span><i class="fas fa-terminal"></i> PARSER AGENTIC DUMP // GPTBot-v4.2</span>
+                <span id="ai-inspect-bot" class="ai-tag-missing">GPTBot: BLOCKED (WAF Challenge)</span>
+              </div>
+
+              <div class="ai-metric-bar">
+                <div>Consommation Tokens : <strong id="ai-inspect-tokens" style="color: var(--rose-400);">5 840 tokens</strong></div>
+                <div>Pureté DOM : <strong id="ai-inspect-purity" style="color: var(--amber-400);">12.4% utile</strong></div>
+                <div>Risque d'hallucination : <strong id="ai-inspect-risk" style="color: var(--rose-400);">ÉLEVÉ (45%)</strong></div>
+              </div>
+
+              <div class="ai-raw-stream">
+<pre><code><span class="hl-comment"># EXTRACTION SÉMANTIQUE MACHINE-READABLE</span>
+<strong>ITEM_NAME:</strong> <span id="ai-inspect-name">Sonus NC-700 Matte Black</span>
+<strong>PRICE_RAW:</strong> <span id="ai-inspect-price">249.00 EUR (Devise non explicite dans JSON-LD)</span>
+<strong>STOCK_STATUS:</strong> <span id="ai-inspect-stock" class="ai-tag-missing">UNKNOWN (Bouton JS non exécuté)</span>
+<strong>SHIPPING_TERMS:</strong> <span id="ai-inspect-shipping" class="ai-tag-missing">MISSING (hasMerchantReturnPolicy absent)</span>
+
+<span class="hl-comment">&lt;!-- ANALYSE DU BRUIT SÉMANTIQUE (Scripts, trackers et bannières) --&gt;</span>
+&lt;script src="analytics-pixel.js"&gt;...&lt;/script&gt;
+&lt;div class="cookie-banner modal-popup"&gt;Acceptez-vous les cookies tiers ?&lt;/div&gt;
+&lt;div class="reviews-widget iframe"&gt;Avis masqués dans un iframe externe non indexable&lt;/div&gt;
+
+<span class="hl-comment"># VERDICT DE L'AGENT IA D'ACHAT</span>
+<span id="ai-inspect-verdict"><span class="ai-tag-missing">DISQUALIFIÉ</span> : L'IA ne peut pas confirmer la disponibilité ni la garantie en 24h.</span></code></pre>
+              </div>
+
+            </div>
+          </div>
+          <span class="viewer-label viewer-label-ai">
+            <i class="fas fa-brain"></i> Vue Agent IA (Flux Brut & Schéma)
+          </span>
+        </div>
+
+        <!-- Slider Handle -->
+        <div class="split-slider-handle" id="split-handle">
+          <div class="handle-button">
+            <i class="fas fa-arrows-alt-h"></i>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       4. THE 5 PILLARS DEEP DIVE
+       ====================================================================== -->
+  <section class="section" id="pillars">
+    <div class="container">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Méthodologie de Scoring</span>
+        <h2 class="section-title">Les 5 Piliers d'Évaluation <span class="gradient-text">AgentReady</span></h2>
+        <p class="lead">
+          Un score mathématique déterministe de 0 à 100 basé sur les véritables contraintes techniques des moteurs IA et des agents autonomes.
+        </p>
+      </div>
+
+      <div class="pillars-grid">
+        
+        <!-- Pilier 1 -->
+        <div class="pillar-card">
+          <div class="pillar-card-top">
+            <div class="pillar-icon-box"><i class="fas fa-shield-virus"></i></div>
+            <span class="pillar-weight-badge">Poids : 20%</span>
+          </div>
+          <h3 class="pillar-title">1. Crawl & Bot Accessibility</h3>
+          <p class="pillar-desc">
+            Analyse des directives <code>robots.txt</code> pour <code>GPTBot</code>, <code>ClaudeBot</code> et <code>PerplexityBot</code>. Détection des challenges Cloudflare/DataDome et du pré-rendu SSR.
+          </p>
+          <ul class="pillar-checklist">
+            <li><i class="fas fa-check"></i> Bots IA expressément autorisés</li>
+            <li><i class="fas fa-check"></i> Absence de captcha ou challenge bloquant</li>
+            <li><i class="fas fa-check"></i> Contenu critique disponible sans JavaScript</li>
+          </ul>
+        </div>
+
+        <!-- Pilier 2 -->
+        <div class="pillar-card">
+          <div class="pillar-card-top">
+            <div class="pillar-icon-box"><i class="fas fa-code"></i></div>
+            <span class="pillar-weight-badge">Poids : 25%</span>
+          </div>
+          <h3 class="pillar-title">2. Schema.org & JSON-LD Déterministe</h3>
+          <p class="pillar-desc">
+            Validation rigoureuse des schémas <code>Product</code> et <code>Offer</code>. Détection des prix exacts, devises, variantes de couleurs/tailles et politiques d'expédition.
+          </p>
+          <ul class="pillar-checklist">
+            <li><i class="fas fa-check"></i> <code>hasMerchantReturnPolicy</code> complet</li>
+            <li><i class="fas fa-check"></i> <code>shippingDetails</code> avec délais et devises</li>
+            <li><i class="fas fa-check"></i> SKU et GTIN/EAN 13 certifiés</li>
+          </ul>
+        </div>
+
+        <!-- Pilier 3 -->
+        <div class="pillar-card">
+          <div class="pillar-card-top">
+            <div class="pillar-icon-box"><i class="fas fa-feather-alt"></i></div>
+            <span class="pillar-weight-badge">Poids : 20%</span>
+          </div>
+          <h3 class="pillar-title">3. Pureté Sémantique & Tokens</h3>
+          <p class="pillar-desc">
+            Mesure du ratio entre données utiles et pollution DOM (scripts de tracking, popups, CSS inline). Les agents pénalisent les fiches dépassant 1 500 tokens.
+          </p>
+          <ul class="pillar-checklist">
+            <li><i class="fas fa-check"></i> Moins de 1 200 tokens consommés par requête</li>
+            <li><i class="fas fa-check"></i> Balisage HTML5 sémantique (main, article, table)</li>
+            <li><i class="fas fa-check"></i> Élimination des nœuds DOM invisibles</li>
+          </ul>
+        </div>
+
+        <!-- Pilier 4 -->
+        <div class="pillar-card">
+          <div class="pillar-card-top">
+            <div class="pillar-icon-box"><i class="fas fa-brain"></i></div>
+            <span class="pillar-weight-badge">Poids : 20%</span>
+          </div>
+          <h3 class="pillar-title">4. AI Buyer Simulator (Gemini API)</h3>
+          <p class="pillar-desc">
+            Simulation en direct via LLM de 5 questions d'achat réelles posées par un internaute. Détection des risques d'hallucination ou de refus de recommandation.
+          </p>
+          <ul class="pillar-checklist">
+            <li><i class="fas fa-check"></i> 100% de réponses exactes sans extrapolation</li>
+            <li><i class="fas fa-check"></i> Clarté du panier et étapes de commande</li>
+            <li><i class="fas fa-check"></i> Aucun arbitrage au détriment de votre boutique</li>
+          </ul>
+        </div>
+
+        <!-- Pilier 5 -->
+        <div class="pillar-card">
+          <div class="pillar-card-top">
+            <div class="pillar-icon-box"><i class="fas fa-network-wired"></i></div>
+            <span class="pillar-weight-badge">Poids : 15%</span>
+          </div>
+          <h3 class="pillar-title">5. Protocoles Agentiques (llms.txt & MCP)</h3>
+          <p class="pillar-desc">
+            Présence du fichier standard <code>/.well-known/llms.txt</code> et d'un point de terminaison de serveur <strong>Model Context Protocol (MCP)</strong> pour la transaction directe.
+          </p>
+          <ul class="pillar-checklist">
+            <li><i class="fas fa-check"></i> Fichier <code>llms.txt</code> conforme aux specs 2026</li>
+            <li><i class="fas fa-check"></i> Endpoint MCP public pour le stock en direct</li>
+            <li><i class="fas fa-check"></i> Manifeste <code>agent-card.json</code> valide</li>
+          </ul>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       5. AI BUYER SIMULATOR SHOWCASE (Gemini Demo)
+       ====================================================================== -->
+  <section class="section" id="simulator" style="background: rgba(8, 12, 22, 0.6);">
+    <div class="container">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Démonstration Interactive</span>
+        <h2 class="section-title">AI Buyer Simulator : <span class="gradient-text">Ce que l'IA répond</span></h2>
+        <p class="lead">
+          Testez comment un agent IA (ChatGPT Search / Gemini) répond aux questions critiques des acheteurs selon que votre boutique est standard ou optimisée AgentReady.
+        </p>
+      </div>
+
+      <div class="simulator-box">
+        
+        <!-- Question Selector Tabs -->
+        <div class="sim-nav-pills" id="sim-nav-pills">
+          <!-- Injected via JavaScript -->
+        </div>
+
+        <!-- Interactive Custom Question Bar with Gemini -->
+        <div style="padding: 1rem 1.5rem; background: rgba(13, 20, 36, 0.95); border-bottom: 1px solid var(--border-subtle); display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--cyan-400); font-weight: 600; font-size: 0.85rem; white-space: nowrap;">
+            <i class="fas fa-wand-magic-sparkles"></i> Poser une question à Gemini :
+          </div>
+          <div style="flex: 1; min-width: 250px; display: flex; gap: 0.5rem;">
+            <input 
+              type="text" 
+              id="sim-custom-input" 
+              placeholder="Ex: Y a-t-il des frais de livraison ou de retour gratuits ?" 
+              class="scanner-input" 
+              style="padding: 0.6rem 1rem; font-size: 0.85rem;"
+            >
+            <button class="btn btn-primary btn-sm" id="btn-ask-gemini" style="white-space: nowrap; padding: 0.6rem 1.25rem;">
+              <i class="fas fa-paper-plane"></i> Interroger
+            </button>
+          </div>
+          <div id="gemini-live-indicator-sim" class="badge badge-cyan" style="font-size: 0.75rem;">
+            <span class="pulse-dot"></span> <span id="sim-model-label">Gemini 3.6 Flash</span>
+          </div>
+        </div>
+
+        <!-- Question Prompt Banner -->
+        <div style="padding: 1.25rem 2rem; background: var(--bg-surface-elevated); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 0.85rem; text-transform: uppercase; color: var(--cyan-400); font-weight: 700;">Question de l'acheteur :</span>
+          <span id="sim-user-prompt" style="font-style: italic; color: #fff; font-weight: 500;">"..."</span>
+        </div>
+
+        <div class="sim-content-grid">
+          
+          <!-- Standard Store Response -->
+          <div class="sim-panel sim-panel-standard">
+            <div class="sim-panel-header">
+              <span class="badge badge-blind"><i class="fas fa-times-circle"></i> Boutique Standard</span>
+              <span id="sim-std-status" style="font-size: 0.82rem; color: var(--rose-400);">⚠️ Hallucination</span>
+            </div>
+            
+            <div class="sim-chat-bubble ai-fail" id="sim-std-response">
+              Chargement de la réponse...
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;" id="sim-std-verdict">
+              <strong>Impact :</strong> Recommandation compromise.
+            </div>
+          </div>
+
+          <!-- AgentReady Store Response -->
+          <div class="sim-panel sim-panel-agentready">
+            <div class="sim-panel-header">
+              <span class="badge badge-ready"><i class="fas fa-check-circle"></i> Optimisé AgentReady</span>
+              <span id="sim-ready-status" style="font-size: 0.82rem; color: var(--emerald-400);">✅ 100% Déterministe</span>
+            </div>
+
+            <div class="sim-chat-bubble ai-success" id="sim-ready-response">
+              Chargement de la réponse...
+            </div>
+
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;" id="sim-ready-verdict">
+              <strong>Impact :</strong> Panier validé et achat direct.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       6. 1-CLICK AUTO-FIX & PROTOCOL GENERATOR
+       ====================================================================== -->
+  <section class="section" id="autofix">
+    <div class="container">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Générateur Automatique</span>
+        <h2 class="section-title">Corrigez votre boutique en <span class="gradient-text">1-Clic</span></h2>
+        <p class="lead">
+          AgentReady génère instantanément les fichiers et snippets de code nécessaires pour brancher votre boutique aux agents IA.
+        </p>
+      </div>
+
+      <div class="code-generator-wrapper">
+        <div class="code-tabs-header">
+          <div class="code-tabs-list">
+            <button class="code-tab-btn active" data-tab="llmsTxt">
+              <i class="fas fa-file-alt"></i> /.well-known/llms.txt
+            </button>
+            <button class="code-tab-btn" data-tab="schemaJson">
+              <i class="fas fa-code"></i> JSON-LD Schema.org Enrichi
+            </button>
+            <button class="code-tab-btn" data-tab="mcpConfig">
+              <i class="fas fa-server"></i> Serveur MCP (Claude & ChatGPT)
+            </button>
+          </div>
+
+          <div class="code-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-copy-code">
+              <i class="far fa-copy"></i> Copier
+            </button>
+            <button class="btn btn-primary btn-sm" id="btn-download-code">
+              <i class="fas fa-download"></i> Télécharger
+            </button>
+          </div>
+        </div>
+
+        <div class="code-view-container">
+          <pre><code id="code-display-block">Chargement du code...</code></pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       7. MARKET URGENCY & STATS
+       ====================================================================== -->
+  <section class="section" style="border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--bg-darkest);">
+    <div class="container">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2rem; text-align: center;">
+        <div>
+          <div style="font-size: 3rem; font-weight: 800; color: var(--cyan-400); margin-bottom: 0.5rem;">+805%</div>
+          <div style="color: var(--text-secondary); font-size: 0.95rem;">Croissance du trafic généré par les moteurs IA (2025-2026)</div>
+        </div>
+        <div>
+          <div style="font-size: 3rem; font-weight: 800; color: var(--emerald-400); margin-bottom: 0.5rem;">3.2x</div>
+          <div style="color: var(--text-secondary); font-size: 0.95rem;">Taux de conversion supérieur comparé à la recherche Google standard</div>
+        </div>
+        <div>
+          <div style="font-size: 3rem; font-weight: 800; color: var(--violet-400); margin-bottom: 0.5rem;">85%</div>
+          <div style="color: var(--text-secondary); font-size: 0.95rem;">Des boutiques Shopify & WooCommerce actuelles sont invisibles pour l'IA</div>
+        </div>
+        <div>
+          <div style="font-size: 3rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">&lt; 15s</div>
+          <div style="color: var(--text-secondary); font-size: 0.95rem;">Pour auditer et générer vos correctifs machine déterministes</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       8. PRICING & PLANS
+       ====================================================================== -->
+  <section class="section" id="pricing">
+    <div class="container">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Tarification Claire & ROI Immédiat</span>
+        <h2 class="section-title">Des formules adaptées aux <span class="gradient-text">Marchands & Agences</span></h2>
+        
+        <!-- Billing Toggle -->
+        <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
+          <span style="font-size: 0.95rem; color: var(--text-secondary);">Facturation Mensuelle</span>
+          <label style="position: relative; display: inline-block; width: 50px; height: 26px;">
+            <input type="checkbox" id="pricing-billing-toggle" style="opacity: 0; width: 0; height: 0;">
+            <span style="position: absolute; cursor: pointer; inset: 0; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); border-radius: 34px; transition: 0.3s;"></span>
+          </label>
+          <span style="font-size: 0.95rem; color: var(--cyan-400); font-weight: 600;">Annuel (-20% de réduction)</span>
+        </div>
+      </div>
+
+      <div class="pricing-grid">
+        
+        <!-- Free Tier -->
+        <div class="pricing-card">
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">Free Discovery</div>
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">Pour tester votre boutique</div>
+          
+          <div class="pricing-price">
+            0 € <span class="pricing-period">/ pour toujours</span>
+          </div>
+
+          <ul class="pricing-features">
+            <li class="included"><i class="fas fa-check"></i> 3 scans de fiches produits par jour</li>
+            <li class="included"><i class="fas fa-check"></i> Calcul du score global 0-100</li>
+            <li class="included"><i class="fas fa-check"></i> Aperçu basique du fichier llms.txt</li>
+            <li class="excluded"><i class="fas fa-times"></i> AI Buyer Simulator approfondi</li>
+            <li class="excluded"><i class="fas fa-times"></i> Serveur MCP dédié</li>
+            <li class="excluded"><i class="fas fa-times"></i> Rapports PDF Marque Blanche</li>
+          </ul>
+
+          <a href="#scanner" class="btn btn-secondary" style="width: 100%;">Lancer un scan gratuit</a>
+        </div>
+
+        <!-- Pro Merchant (Featured) -->
+        <div class="pricing-card featured">
+          <div class="pricing-badge-popular">Le Choix des Marques D2C</div>
+          
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">Pro Merchant</div>
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">Pour dominer le trafic agentique</div>
+          
+          <div class="pricing-price" id="price-pro">
+            49 € <span class="pricing-period">/ mois</span>
+          </div>
+
+          <ul class="pricing-features">
+            <li class="included"><i class="fas fa-check"></i> <strong>250 fiches produits</strong> monitorées / mois</li>
+            <li class="included"><i class="fas fa-check"></i> AI Buyer Simulator complet (50 requêtes Gemini)</li>
+            <li class="included"><i class="fas fa-check"></i> Export illimité de <code>llms.txt</code> & JSON-LD enrichi</li>
+            <li class="included"><i class="fas fa-check"></i> <strong>Serveur MCP Cloud Dédié</strong> hébergé</li>
+            <li class="included"><i class="fas fa-check"></i> Alertes d'intégrité de thème par email</li>
+            <li class="excluded"><i class="fas fa-times"></i> Rapports PDF Marque Blanche</li>
+          </ul>
+
+          <button class="btn btn-primary trigger-pdf-modal" style="width: 100%;">Commencer l'essai 14 jours</button>
+        </div>
+
+        <!-- Agency / Scale -->
+        <div class="pricing-card">
+          <div style="font-size: 1.2rem; font-weight: 700; color: var(--text-primary);">Agency & Scale</div>
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem;">Pour les consultants et agences e-commerce</div>
+          
+          <div class="pricing-price" id="price-agency">
+            199 € <span class="pricing-period">/ mois</span>
+          </div>
+
+          <ul class="pricing-features">
+            <li class="included"><i class="fas fa-check"></i> <strong>2 500 scans</strong> de produits / mois</li>
+            <li class="included"><i class="fas fa-check"></i> <strong>Rapports d'audit PDF 5 pages Marque Blanche</strong> (votre logo)</li>
+            <li class="included"><i class="fas fa-check"></i> <strong>Scan en Masse (Batch Scan)</strong> jusqu'à 500 URLs</li>
+            <li class="included"><i class="fas fa-check"></i> Multi-comptes clients & accès collaborateurs</li>
+            <li class="included"><i class="fas fa-check"></i> Support prioritaire & canal Slack partagé</li>
+          </ul>
+
+          <button class="btn btn-secondary trigger-pdf-modal" style="width: 100%;">Contacter l'équipe Agence</button>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       9. FAQ SECTION
+       ====================================================================== -->
+  <section class="section" style="background: rgba(8, 12, 22, 0.4);">
+    <div class="container" style="max-width: 860px;">
+      
+      <div class="section-header">
+        <span class="badge badge-cyan">Questions Fréquentes</span>
+        <h2 class="section-title">Comprendre le <span class="gradient-text">Commerce Agentique</span></h2>
+      </div>
+
+      <div class="faq-list" style="display: flex; flex-direction: column; gap: 1rem;">
+        
+        <div class="faq-item pillar-card" style="padding: 1.5rem; cursor: pointer;">
+          <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; font-weight: 700;">
+            <span>Quelle est la différence entre le SEO classique et le GEO (Commerce Agentique) ?</span>
+            <i class="fas fa-chevron-down" style="color: var(--cyan-400);"></i>
+          </div>
+          <div class="faq-answer" style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+            Le SEO traditionnel vise à classer votre page parmi 10 liens bleus pour qu'un humain clique. Le GEO (Generative Engine Optimization) et le commerce agentique visent à fournir des données machine déterministes (JSON-LD, llms.txt, API de stock) pour qu'un agent autonome (ChatGPT, Perplexity, Operator) sélectionne et achète votre produit sans intervention humaine.
+          </div>
+        </div>
+
+        <div class="faq-item pillar-card" style="padding: 1.5rem; cursor: pointer;">
+          <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; font-weight: 700;">
+            <span>AgentReady fonctionne-t-il avec Shopify, WooCommerce et Magento ?</span>
+            <i class="fas fa-chevron-down" style="color: var(--cyan-400);"></i>
+          </div>
+          <div class="faq-answer" style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+            Oui, AgentReady est 100% agnostique. Il analyse l'URL publique de n'importe quel site (Shopify, WooCommerce, Magento, PrestaShop, BigCommerce, ou architectures Headless Next.js/Hydrogen) exactement de la même manière qu'un robot IA le ferait.
+          </div>
+        </div>
+
+        <div class="faq-item pillar-card" style="padding: 1.5rem; cursor: pointer;">
+          <div class="faq-question" style="display: flex; justify-content: space-between; align-items: center; font-weight: 700;">
+            <span>Qu'est-ce qu'un serveur MCP et pourquoi en ai-je besoin ?</span>
+            <i class="fas fa-chevron-down" style="color: var(--cyan-400);"></i>
+          </div>
+          <div class="faq-answer" style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+            Le Model Context Protocol (MCP) est le nouveau standard ouvert porté par l'industrie pour connecter les LLMs à des systèmes temps réel. Avoir un serveur MCP permet à un assistant IA de vérifier vos stocks exacts, de réserver un article et de générer un jeton de paiement sécurisé pour le compte de l'utilisateur.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ======================================================================
+       10. FOOTER
+       ====================================================================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="nav-brand">
+            <div class="brand-icon">
+              <i class="fas fa-robot"></i>
+            </div>
+            <span>Agent<span class="gradient-text-glow">Ready</span></span>
+          </div>
+          <p>
+            La première suite logicielle d'audit, de simulation et d'optimisation pour le commerce agentique et l'indexation IA.
+          </p>
+        </div>
+
+        <div class="footer-links-grid">
+          <div class="footer-col">
+            <h4>Produit</h4>
+            <ul>
+              <li><a href="#scanner">Scanner d'URL</a></li>
+              <li><a href="#split-screen">Human vs AI</a></li>
+              <li><a href="#pillars">5 Piliers d'Audit</a></li>
+              <li><a href="#simulator">Simulateur Gemini</a></li>
+              <li><a href="#autofix">Générateur llms.txt</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <h4>Ressources</h4>
+            <ul>
+              <li><a href="docs/PRD.md">Spécifications PRD</a></li>
+              <li><a href="docs/MARKET_ANALYSIS.md">Données de Marché 2026</a></li>
+              <li><a href="https://llmstxt.org/" target="_blank">Standard llms.txt</a></li>
+              <li><a href="https://modelcontextprotocol.io/" target="_blank">Model Context Protocol</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <h4>Tarifs & Agence</h4>
+            <ul>
+              <li><a href="#pricing">Plan Pro Merchant</a></li>
+              <li><a href="#pricing">Plan Agence White-Label</a></li>
+              <li><a href="#" class="trigger-pdf-modal">Exemple de Rapport PDF</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 AgentReady Technologies. Tous droits réservés.</div>
+        <div style="display: flex; gap: 1.5rem;">
+          <a href="#" style="color: var(--text-muted); text-decoration: none;">Confidentialité</a>
+          <a href="#" style="color: var(--text-muted); text-decoration: none;">Conditions Générales</a>
+          <a href="#" style="color: var(--text-muted); text-decoration: none;">Sécurité</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================
+       11. LEAD CAPTURE MODAL (PDF REPORT DOWNLOAD)
+       ====================================================================== -->
+  <div class="modal-overlay" id="pdf-report-modal">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="modal-close-x">&times;</button>
+      
+      <div id="modal-lead-form">
+        <span class="badge badge-cyan" style="margin-bottom: 1rem;">Export Complet Marque Blanche</span>
+        <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">Recevez l'audit complet de 5 pages</h3>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
+          Inclut la liste exhaustive des 32 points de contrôle, le rapport d'hallucinations de l'AI Buyer Simulator et le fichier <code>llms.txt</code> prêt à déployer.
+        </p>
+
+        <form>
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Votre Email Professionnel</label>
+            <input 
+              type="email" 
+              id="lead-email-input" 
+              required 
+              placeholder="directeur.ecommerce@votre-marque.com" 
+              class="scanner-input" 
+              style="padding-left: 1.2rem;"
+            >
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;">
+            <i class="fas fa-file-pdf"></i> Générer mon Rapport PDF Gratuit
+          </button>
+        </form>
+
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+          <i class="fas fa-lock"></i> Aucune carte bancaire requise. Données 100% confidentielles.
+        </div>
+      </div>
+
+      <!-- Success State -->
+      <div id="modal-success-state" style="display: none; text-align: center; padding: 1.5rem 0;">
+        <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(16, 185, 129, 0.2); color: var(--emerald-400); display: flex; align-items: center; justify-content: center; font-size: 1.8rem; margin: 0 auto 1.25rem;">
+          <i class="fas fa-check"></i>
+        </div>
+        <h3 style="font-size: 1.4rem; margin-bottom: 0.5rem;">Rapport PDF en route !</h3>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.5rem;">
+          L'audit complet et le pack d'auto-fix viennent d'être envoyés à <strong id="lead-sent-email" style="color: var(--cyan-400);">votre email</strong>.
+        </p>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('pdf-report-modal').classList.remove('active')">
+          Fermer la fenêtre
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       12. GEMINI CONFIGURATION & STATUS MODAL
+       ====================================================================== -->
+  <div class="modal-overlay" id="gemini-modal">
+    <div class="modal-card" style="max-width: 520px;">
+      <button class="modal-close-btn" id="gemini-modal-close-x">&times;</button>
+      
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.25rem;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #4285F4, #34A853); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);">
+            <i class="fas fa-brain"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 1.35rem; margin: 0; color: #fff;">Google Gemini 3.6 Flash</h3>
+            <span style="font-size: 0.82rem; color: var(--cyan-400);">Moteur d'IA officiel (google-genai)</span>
+          </div>
+        </div>
+
+        <p style="color: var(--text-secondary); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.55;">
+          AgentReady utilise le SDK officiel Google GenAI pour évaluer en temps réel la capacité des agents d'achat autonomes à finaliser un panier sur votre boutique.
+        </p>
+
+        <!-- Status Card -->
+        <div id="gemini-status-card" style="margin-bottom: 1.25rem; padding: 0.9rem 1.1rem; border-radius: 10px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.85rem; color: var(--text-secondary);">État de la connexion :</span>
+          <span id="gemini-status-text" class="badge badge-blind"><span class="pulse-dot"></span> Vérification...</span>
+        </div>
+
+        <form id="gemini-key-form">
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 500;">
+              Clé API Google Gemini (Personnelle ou d'Équipe) :
+            </label>
+            <input 
+              type="password" 
+              id="gemini-key-input" 
+              placeholder="AIzaSy..." 
+              class="scanner-input" 
+              style="padding-left: 1rem; font-family: monospace; font-size: 0.85rem;"
+            >
+          </div>
+
+          <div style="display: flex; gap: 0.75rem;">
+            <button type="submit" class="btn btn-primary" id="btn-save-gemini-key" style="flex: 1; padding: 0.85rem;">
+              <i class="fas fa-check"></i> Sauvegarder & Tester
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-clear-gemini-key" style="padding: 0.85rem;">
+              Effacer
+            </button>
+          </div>
+        </form>
+
+        <div id="gemini-test-feedback" style="margin-top: 1rem; font-size: 0.85rem; display: none; padding: 0.75rem 1rem; border-radius: 8px;"></div>
+
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem; line-height: 1.5;">
+          <i class="fas fa-key" style="color: var(--cyan-400);"></i> <strong>Alternative fichier .env :</strong> Vous pouvez coller votre clé dans <code>AIready/.env</code> : <code>GEMINI_API_KEY=AIzaSy...</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/app.js?v=2.6"></script>
+</body>
+</html>

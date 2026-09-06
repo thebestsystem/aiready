@@ -1,0 +1,29 @@
+# Environment variables & secrets (CRITICAL: Do NOT commit)
+.env
+.env.local
+.env.*.local
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Temporary test outputs & local database
+leads.csv
+test_report.pdf
+*.log
+
+# IDE & Editor artifacts
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
