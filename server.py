@@ -52,14 +52,25 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for frontend clients (local or production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configuration CORS durcie et conforme aux standards W3C (Issue #3)
+cors_origins_raw = os.getenv("CORS_ORIGINS", "").strip()
+if cors_origins_raw and cors_origins_raw != "*":
+    origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 class ScanRequest(BaseModel):
     url: str
