@@ -7,9 +7,8 @@ Audit technique, simulation d'intention d'achat IA et génération d'auto-fix.
 
 import os
 import re
-import csv
-import io
 import json
+import hashlib
 import asyncio
 import socket
 import ipaddress
@@ -41,7 +40,7 @@ from fastapi import FastAPI, HTTPException, Response, Request, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 
 from lead_sink import dispatch_lead
 from pdf_generator import generate_pdf_report   # refactor P1 : rendu ReportLab déporté hors monolithe
@@ -106,13 +105,38 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
+def _is_trusted_proxy(host: str) -> bool:
+    """Détermine si l'hôte de connexion directe est un proxy de confiance."""
+    # 1. Flag explicite d'environnement ou PaaS reconnu (Railway, Render, Fly.io, Heroku)
+    trust_env = os.getenv("TRUST_PROXY_HEADERS", "").strip().lower()
+    if trust_env in ("1", "true", "yes", "all", "*"):
+        return True
+    if trust_env in ("0", "false", "no"):
+        return False
+    if any(os.getenv(k) for k in ("RAILWAY_ENVIRONMENT", "RENDER", "FLY_APP_NAME", "HEROKU")):
+        return True
+
+    # 2. Proxys de confiance configurés (par défaut loopback et testclient)
+    trusted_raw = os.getenv("TRUSTED_PROXIES", "127.0.0.1,::1,testclient,localhost")
+    trusted_set = {h.strip().lower() for h in trusted_raw.split(",") if h.strip()}
+    return host.lower() in trusted_set
+
+
 def _get_client_ip(request: Request) -> str:
-    """Extrait l'IP réelle du client derrière un éventuel reverse proxy."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        # Dernier élément = IP ajoutée par le proxy de confiance le plus proche
-        return forwarded.split(",")[-1].strip()
-    return request.client.host if request.client else "unknown"
+    """Extrait l'IP réelle du client en validant la confiance du proxy de connexion directe.
+    
+    Si la connexion directe ne provient pas d'un proxy approuvé (ou si TRUST_PROXY_HEADERS=false),
+    l'en-tête X-Forwarded-For est ignoré pour empêcher toute usurpation et contournement du rate-limit.
+    """
+    direct_host = request.client.host if request.client else "unknown"
+
+    if _is_trusted_proxy(direct_host):
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            # Dernier élément = IP ajoutée par le proxy de confiance le plus proche
+            return forwarded.split(",")[-1].strip()
+
+    return direct_host
 
 
 class _SlidingWindowRateLimiter:
@@ -441,12 +465,6 @@ def _resolve_all_ips(host: str) -> List[str]:
     return ips
 
 
-def _resolve_first_ip(host: str) -> Optional[str]:
-    """Résout le hostname (socket) et retourne la première IP, ou None si KO."""
-    all_ips = _resolve_all_ips(host)
-    return all_ips[0] if all_ips else None
-
-
 async def _assert_scan_target_ok(url: str) -> None:
     """Élève HTTPException(400) si la cible de scan est un réseau interne (SSRF)."""
     parsed = urlparse(url)
@@ -462,6 +480,19 @@ async def _assert_scan_target_ok(url: str) -> None:
     if all(_is_nonpublic_ip(ip) for ip in resolved):
         first_reason = _structural_ssrf_reason(resolved[0]) or "adresse IP réservée/privée (SSRF)"
         raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {first_reason}.")
+
+
+async def _validate_httpx_request_target(request: httpx.Request) -> None:
+    """Hook httpx : vérifie chaque requête sortante avant l'ouverture du socket (y compris redirections)."""
+    await _assert_scan_target_ok(str(request.url))
+
+
+async def _validate_httpx_redirect_target(response: httpx.Response) -> None:
+    """Hook httpx : intercepte toute réponse de redirection (3xx) et valide l'en-tête Location résolu."""
+    if response.is_redirect and "location" in response.headers:
+        redirect_url = urljoin(str(response.url), response.headers["location"])
+        await _assert_scan_target_ok(redirect_url)
+
 
 async def _read_page_bounded(resp: httpx.Response, limit: int) -> bytes:
     """Lit le corps d'une réponse httpx sans jamais conserver plus de `limit` octets.
@@ -522,22 +553,66 @@ def _looks_like_web_page(content_type_header: str, html_head: str) -> bool:
         return True
     return False
 
-async def fetch_robots_txt(client: httpx.AsyncClient, domain: str) -> Dict[str, Any]:
-    robots_url = f"https://{domain}/robots.txt"
+def parse_robots_txt(text: str) -> Tuple[List[str], bool]:
+    """Parse robots.txt section par section (blocs User-agent).
+    
+    Retourne (disallowed_bots, is_global_disallowed).
+    Isole strictement les directives Disallow: / à leur bloc User-agent respectif.
+    Gère les fins de ligne CRLF, espacements variables (Disallow:/) et commentaires.
+    """
+    target_bots = {"gptbot", "claudebot", "perplexitybot", "google-extended"}
+    disallowed_bots = set()
+    global_disallowed = False
+
+    current_agents = []
+    current_disallow_all = False
+    in_directives = False
+
+    for line in text.splitlines():
+        line = line.split("#")[0].strip()
+        if not line or ":" not in line:
+            continue
+        key, val = line.split(":", 1)
+        key = key.strip().lower()
+        val = val.strip()
+
+        if key == "user-agent":
+            if in_directives:
+                if current_disallow_all:
+                    if "*" in current_agents:
+                        global_disallowed = True
+                    for b in current_agents:
+                        if b in target_bots:
+                            disallowed_bots.add(b)
+                current_disallow_all = False
+                current_agents = []
+                in_directives = False
+            current_agents.append(val.lower())
+        elif key == "disallow":
+            in_directives = True
+            if val in ("/", "/*") or val.startswith("/ "):
+                current_disallow_all = True
+        elif key == "allow":
+            in_directives = True
+            if val in ("/", "/*"):
+                current_disallow_all = False
+
+    if current_disallow_all:
+        if "*" in current_agents:
+            global_disallowed = True
+        for b in current_agents:
+            if b in target_bots:
+                disallowed_bots.add(b)
+
+    return sorted(list(disallowed_bots)), global_disallowed
+
+
+async def fetch_robots_txt(client: httpx.AsyncClient, domain: str, scheme: str = "https") -> Dict[str, Any]:
+    robots_url = f"{scheme}://{domain}/robots.txt"
     try:
         resp = await client.get(robots_url, timeout=5.0)
         if resp.status_code == 200:
-            content = resp.text.lower()
-            bots = ["gptbot", "claudebot", "perplexitybot", "google-extended"]
-            disallowed_bots = []
-            for b in bots:
-                # Check for explicit disallow pattern
-                if f"user-agent: {b}" in content and "disallow: /" in content:
-                    disallowed_bots.append(b)
-            
-            # Check global disallow
-            is_global_disallowed = "user-agent: *" in content and "\ndisallow: /\n" in content
-
+            disallowed_bots, is_global_disallowed = parse_robots_txt(resp.text)
             return {
                 "found": True,
                 "disallowed_bots": disallowed_bots,
@@ -548,9 +623,9 @@ async def fetch_robots_txt(client: httpx.AsyncClient, domain: str) -> Dict[str, 
         pass
     return {"found": False, "disallowed_bots": [], "global_disallowed": False, "raw": ""}
 
-async def check_llms_txt(client: httpx.AsyncClient, domain: str) -> Dict[str, Any]:
+async def check_llms_txt(client: httpx.AsyncClient, domain: str, scheme: str = "https") -> Dict[str, Any]:
     for path in ["/.well-known/llms.txt", "/llms.txt"]:
-        url = f"https://{domain}{path}"
+        url = f"{scheme}://{domain}{path}"
         try:
             resp = await client.get(url, timeout=4.0)
             if resp.status_code == 200 and len(resp.text) > 30:
@@ -779,94 +854,6 @@ def generate_gemini_content(client, prompt: str, is_json: bool = False, max_toke
             continue
     raise last_err or RuntimeError("Tous les modèles Gemini sont temporairement indisponibles")
 
-async def run_ai_buyer_simulation(product_info: Dict[str, Any], user_key: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Appelle le SDK officiel Google GenAI via _get_gemini_client (cascade GEMINI_MODELS)
-    si une clé est disponible, sinon utilise le moteur déterministe certifié.
-    """
-    client = _get_gemini_client(user_key)
-    if client:
-        try:
-            prompt = f"""Tu es un agent IA autonome d'achat (comme ChatGPT Search, Gemini ou Operator).
-Voici les données extraites d'une fiche produit e-commerce :
-Nom: {product_info.get('name')}
-Prix: {product_info.get('price')} {product_info.get('currency')}
-Livraison spécifiée: {product_info.get('has_shipping')}
-Retours spécifiés: {product_info.get('has_return')}
-Stock vérifiable: {product_info.get('has_stock')}
-
-Évalue cette fiche produit pour un achat autonome.
-Réponds STRICTEMENT en format JSON avec ces champs :
-{{
-  "score": <note entre 0 et 100 sur ta confiance d'achat>,
-  "hallucinationRisk": "<FAIBLE|MOYEN|ÉLEVÉ>",
-  "verdict": "<Court diagnostic de 2 phrases>",
-  "canBuy": <true ou false>
-}}
-"""
-            res, model_used = await asyncio.to_thread(
-                generate_gemini_content,
-                client,
-                prompt,
-                is_json=True
-            )
-            parsed = json.loads(res.text)
-            return {
-                "score": parsed.get("score", 75),
-                "hallucination_risk": parsed.get("hallucinationRisk", "FAIBLE"),
-                "verdict": parsed.get("verdict", f"Simulation en direct via {model_used} validée."),
-                "details": [
-                    f"Simulation d'achat en direct via {model_used}",
-                    f"Confiance d'achat IA : {parsed.get('score', 75)}/100",
-                    f"Risque d'hallucination estimé par Gemini : {parsed.get('hallucinationRisk', 'FAIBLE')}"
-                ],
-                "geminiLive": True
-            }
-        except Exception as e:
-            print("[Gemini] Erreur appel simulation:", e)
-
-    # Fallback déterministe haute fidélité (sans clé API)
-    score = 30
-    details = []
-    has_price = product_info.get("price") and product_info.get("price") != "Inconnu"
-    has_shipping = product_info.get("has_shipping", False)
-    has_return = product_info.get("has_return", False)
-    has_stock = product_info.get("has_stock", False)
-
-    if has_price:
-        score += 25
-        details.append("Prix certifié : L'agent IA peut présenter le coût exact")
-    else:
-        details.append("Prix incertain ou masqué par JavaScript")
-
-    if has_shipping:
-        score += 20
-        details.append("Livraison claire : 0 hallucination sur les frais de port")
-    else:
-        details.append("Livraison non structurée : Risque d'hallucination sur les frais de port")
-
-    if has_return:
-        score += 15
-        details.append("Politique de retour validée")
-
-    if has_stock:
-        score += 10
-        details.append("Stock disponible confirmé")
-
-    if score >= 80:
-        risk = "FAIBLE (0-5%)"
-    elif score >= 55:
-        risk = "MOYEN (20-35%)"
-    else:
-        risk = "ÉLEVÉ (50%+)"
-
-    return {
-        "score": score,
-        "hallucination_risk": risk,
-        "verdict": "L'agent IA dispose des informations nécessaires pour recommander l'achat." if score >= 80 else "L'agent IA risque de renvoyer l'acheteur vers un concurrent en raison d'informations critiques manquantes.",
-        "details": details,
-        "geminiLive": False
-    }
 
 def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, str]:
     clean_domain = domain.lower().strip()
@@ -906,7 +893,8 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
             sku_slug = '-'.join(parts[:2])[:10]
             sku = f"{sku_slug}-01"
         else:
-            sku = f"{clean_domain.split('.')[0].upper()[:4]}-{abs(hash(name)) % 90000 + 10000}"
+            sku_hash = hashlib.sha256(name.encode("utf-8")).hexdigest()[:8].upper()
+            sku = f"{clean_domain.split('.')[0].upper()[:4]}-{sku_hash}"
 
     llms_txt = f"""# LLMS.txt pour {clean_domain}
 # Specification: https://llmstxt.org/ v1.0
@@ -1225,7 +1213,8 @@ def extract_sku_from_html(soup: BeautifulSoup, product_name: Optional[str], doma
             sku_slug = '-'.join(parts[:2])[:10]
             return f"{sku_slug}-01"
 
-    return f"{domain_prefix}-{abs(hash(domain)) % 90000 + 10000}"
+    sku_hash = hashlib.sha256(domain.encode("utf-8")).hexdigest()[:8].upper()
+    return f"{domain_prefix}-{sku_hash}"
 
 def extract_stock_from_html(soup: BeautifulSoup) -> Optional[bool]:
     """Détecte la mention de disponibilité du stock dans le HTML visible."""
@@ -1254,15 +1243,33 @@ async def scan_url(req: ScanRequest):
     # (IP privées/réservées, localhost, metadata) AVANT toute connexion réseau.
     await _assert_scan_target_ok(url)
 
-    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=SCAN_FETCH_TIMEOUT_SECONDS) as client:
+    async with httpx.AsyncClient(
+        headers=HEADERS,
+        follow_redirects=True,
+        timeout=SCAN_FETCH_TIMEOUT_SECONDS,
+        event_hooks={
+            "request": [_validate_httpx_request_target],
+            "response": [_validate_httpx_redirect_target],
+        },
+    ) as client:
         # 1. Fetch robots.txt & llms.txt (déjà typés / bornés) de façon indépendante.
         # On les lance en tâches réelles afin de pouvoir annuler proprement en cas de
         # refus anticipé (pas de coroutine "jamais awaitée" sur le chemin d'erreur).
-        robots_task = asyncio.create_task(fetch_robots_txt(client, domain))
-        llms_task = asyncio.create_task(check_llms_txt(client, domain))
+        scheme = parsed.scheme or "https"
+        robots_task = asyncio.create_task(fetch_robots_txt(client, domain, scheme=scheme))
+        llms_task = asyncio.create_task(check_llms_txt(client, domain, scheme=scheme))
 
         try:
             page_resp = await client.get(url)
+            # Double vérification de sécurité de l'historique des redirections et de l'atterrissage
+            if hasattr(page_resp, "history"):
+                for r in page_resp.history:
+                    await _assert_scan_target_ok(str(r.url))
+            if hasattr(page_resp, "url"):
+                await _assert_scan_target_ok(str(page_resp.url))
+        except HTTPException:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise
         except Exception as e:
             await _cancel_scan_tasks(robots_task, llms_task)
             raise HTTPException(status_code=400, detail=f"Impossible de joindre l'URL : {str(e)}")
@@ -1360,7 +1367,7 @@ async def scan_url(req: ScanRequest):
         "challenge-platform" in content_lower or
         ("cloudflare" in resp_headers.get("server", "").lower() and ("just a moment" in content_lower or "enable javascript" in content_lower))
     )
-    is_datadome = "datadome" in content_lower or "datadome" in resp_headers
+    is_datadome = "datadome" in content_lower or any("datadome" in k or "datadome" in str(v).lower() for k, v in resp_headers.items())
     dom_text = soup.get_text(strip=True)
     is_empty_csr = len(dom_text) < 140 and any(k in content_lower for k in ["<div id=\"root\"", "<div id=\"app\"", "<div id=\"__next\"", "noscript"])
 

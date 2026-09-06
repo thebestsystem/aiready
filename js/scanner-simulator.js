@@ -4,6 +4,17 @@
 
 import { AUDIT_PRESETS } from './mock-data.js';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+
 export class ScannerSimulator {
   constructor() {
     this.form = document.getElementById('scanner-form');
@@ -513,7 +524,14 @@ export class ScannerSimulator {
           displayPrice = data.aiView.extractedPrice.split('(')[0].trim();
         }
         const isStockOk = Boolean(data.productData?.has_stock);
-        humanPrice.innerHTML = `${displayPrice} <span style="font-size: 0.9rem; color: ${isStockOk ? 'var(--emerald-400)' : 'var(--amber-400)'}; font-weight: 600;">${isStockOk ? '• En Stock • Expédition 24h' : '• Stock à confirmer par l\'IA'}</span>`;
+        humanPrice.textContent = '';
+        humanPrice.appendChild(document.createTextNode(`${displayPrice} `));
+        const stockSpan = document.createElement('span');
+        stockSpan.style.fontSize = '0.9rem';
+        stockSpan.style.color = isStockOk ? 'var(--emerald-400)' : 'var(--amber-400)';
+        stockSpan.style.fontWeight = '600';
+        stockSpan.textContent = isStockOk ? '• En Stock • Expédition 24h' : '• Stock à confirmer par l\'IA';
+        humanPrice.appendChild(stockSpan);
       }
 
       if (humanDesc) {
@@ -602,10 +620,18 @@ export class ScannerSimulator {
       }
 
       if (terminalVerdict) {
+        terminalVerdict.textContent = '';
+        const tagSpan = document.createElement('span');
         if (data.score >= 70) {
-          terminalVerdict.innerHTML = `<span class="ai-tag-ok">CONFIRMÉ (Score: ${data.score}/100)</span> : Métadonnées certifiées pour "${prodName}", conversion IA favorable.`;
+          tagSpan.className = 'ai-tag-ok';
+          tagSpan.textContent = `CONFIRMÉ (Score: ${data.score}/100)`;
+          terminalVerdict.appendChild(tagSpan);
+          terminalVerdict.appendChild(document.createTextNode(` : Métadonnées certifiées pour "${prodName}", conversion IA favorable.`));
         } else {
-          terminalVerdict.innerHTML = `<span class="ai-tag-missing">DISQUALIFIÉ (Score: ${data.score}/100)</span> : L'IA ne peut pas certifier l'achat autonome pour "${prodName}".`;
+          tagSpan.className = 'ai-tag-missing';
+          tagSpan.textContent = `DISQUALIFIÉ (Score: ${data.score}/100)`;
+          terminalVerdict.appendChild(tagSpan);
+          terminalVerdict.appendChild(document.createTextNode(` : L'IA ne peut pas certifier l'achat autonome pour "${prodName}".`));
         }
       }
 
@@ -628,8 +654,8 @@ export class ScannerSimulator {
             <div class="whats-broken-item ${itemClass}">
               <i class="fas ${icon} whats-broken-icon" style="color: ${color};"></i>
               <div class="whats-broken-content">
-                <div class="whats-broken-title">${item.title}</div>
-                <div class="whats-broken-impact">${item.impact}</div>
+                <div class="whats-broken-title">${escapeHtml(item.title)}</div>
+                <div class="whats-broken-impact">${escapeHtml(item.impact)}</div>
               </div>
             </div>
           `;

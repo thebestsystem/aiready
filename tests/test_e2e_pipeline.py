@@ -15,7 +15,10 @@ import os
 import sys
 import json
 import socket
+import hashlib
 import unittest
+from unittest.mock import patch, MagicMock, AsyncMock
+import httpx
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -36,8 +39,8 @@ class TestE2EPipeline(unittest.TestCase):
         cls.client = TestClient(app)
 
     def test_01_scan_scoring_and_no_sync_llm(self):
-        """Étape 1 : Vérifie le calcul 5 piliers et l'absence de LLM synchrone."""
-        # Test calcul théorique exact avec la formule
+        """Étape 1 : Vérifie le calcul 5 piliers et l'absence de LLM synchrone sur /api/scan."""
+        # 1. Vérification du calcul théorique de la formule pondérée
         crawl = 90
         schema = 80
         tokens = 70
@@ -53,8 +56,46 @@ class TestE2EPipeline(unittest.TestCase):
         )
         self.assertEqual(expected, 74)
 
-        # Vérification sur AuditResult : geminiLive doit être False au scan
-        self.assertIn("crawl", ["crawl", "schema", "tokens", "simulator", "proto"])
+        # 2. Exécution d'un scan réel simulé via l'API
+        mock_resp = MagicMock()
+        mock_resp.text = "<html><head><title>Boutique Test</title></head><body><h1>Sneakers Pro</h1><span itemprop='price'>120.00 EUR</span></body></html>"
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/html"}
+        mock_resp.aiter_bytes = None
+        mock_resp.history = []
+        mock_resp.url = httpx.URL("https://boutique-test.fr")
+
+        fake_robots = {"found": True, "global_disallowed": False, "disallowed_bots": [], "raw": ""}
+        fake_llms = {"found": True, "path": "/.well-known/llms.txt", "content": "# LLMs.txt\nAPI: https://api.boutique.fr\nOpenAPI: /openapi.json"}
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=fake_robots), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms):
+
+            res = self.client.post("/api/scan", json={"url": "https://boutique-test.fr"})
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+
+            # Absence de LLM synchrone au scan (exigence PRD)
+            self.assertFalse(data.get("geminiLive"), "Le scan doit être 100% déterministe (zéro appel LLM synchrone)")
+
+            # Présence et intégrité des 5 piliers
+            pillars = data.get("pillars", {})
+            for p in ["crawl", "schema", "tokens", "simulator", "proto"]:
+                self.assertIn(p, pillars, f"Le pilier '{p}' doit être présent dans l'audit")
+                self.assertIn("score", pillars[p])
+                self.assertIn("weight", pillars[p])
+
+            # Validation de la cohérence mathématique du score global
+            c = pillars["crawl"]["score"]
+            s = pillars["schema"]["score"]
+            t = pillars["tokens"]["score"]
+            sim_score = pillars["simulator"]["score"]
+            proto_score = pillars["proto"]["score"]
+            calc_score = int((c * 0.20) + (s * 0.25) + (t * 0.20) + (sim_score * 0.20) + (proto_score * 0.15))
+            self.assertEqual(data["score"], calc_score, "Le score total doit correspondre à la somme pondérée des 5 piliers")
+
+        server._scan_limiter.reset()
 
     def test_02_front_integrity_and_weights(self):
         """Étape 2 : Vérifie les mini-cartes et l'absence d'ancien codage 3 piliers."""
@@ -754,7 +795,148 @@ class TestE2EPipeline(unittest.TestCase):
                 self.assertIn("shop.com", payload["subject"])
                 self.assertIn("70/100", payload["subject"])
 
+    def test_22_ssrf_redirect_blocked(self):
+        """Sécurité SSRF : Redirection HTTP (301/302) vers une IP privée/interne bloquée net."""
+        def mock_redirect_handler(request):
+            if "evil-redirect.com" in str(request.url):
+                return httpx.Response(302, headers={"Location": "http://127.0.0.1:9200/secret"})
+            return httpx.Response(200, text="internal resource")
+
+        transport = httpx.MockTransport(mock_redirect_handler)
+        orig_client = httpx.AsyncClient
+
+        def custom_client(*args, **kwargs):
+            kwargs["transport"] = transport
+            return orig_client(*args, **kwargs)
+
+        with patch("server.httpx.AsyncClient", side_effect=custom_client):
+            res = self.client.post("/api/scan", json={"url": "https://evil-redirect.com/test"})
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("SSRF", res.json()["detail"])
+
+        server._scan_limiter.reset()
+
+    def test_23_rate_limit_trusted_proxy_protection(self):
+        """Sécurité Rate-Limit : Falsification X-Forwarded-For ignorée si client direct non approuvé."""
+        from types import SimpleNamespace
+
+        # 1. Connexion directe non fiable + falsification X-Forwarded-For -> ignorée
+        fake_req_untrusted = SimpleNamespace(
+            client=SimpleNamespace(host="203.0.113.195"),
+            headers={"x-forwarded-for": "1.2.3.4"}
+        )
+        with patch.dict(os.environ, {"TRUST_PROXY_HEADERS": "false", "RAILWAY_ENVIRONMENT": "", "RENDER": "", "FLY_APP_NAME": ""}):
+            ip = server._get_client_ip(fake_req_untrusted)
+            self.assertEqual(ip, "203.0.113.195", "L'en-tête X-Forwarded-For falsifié doit être ignoré pour un hôte direct non fiable")
+
+        # 2. Connexion depuis un proxy de confiance configuré -> X-Forwarded-For pris en compte
+        fake_req_trusted = SimpleNamespace(
+            client=SimpleNamespace(host="10.0.0.1"),
+            headers={"x-forwarded-for": "198.51.100.22, 192.0.2.1"}
+        )
+        with patch.dict(os.environ, {"TRUSTED_PROXIES": "10.0.0.1", "TRUST_PROXY_HEADERS": ""}):
+            ip = server._get_client_ip(fake_req_trusted)
+            self.assertEqual(ip, "192.0.2.1", "L'IP client réelle du proxy de confiance doit être extraite")
+
+    def test_24_deterministic_sku(self):
+        """Déterminisme des SKU : sha256 garantit le même SKU indépendamment du sel Python."""
+        from bs4 import BeautifulSoup
+        empty_soup = BeautifulSoup("<html></html>", "html.parser")
+
+        sku1 = server.extract_sku_from_html(empty_soup, "", "boutique-test.com")
+        sku2 = server.extract_sku_from_html(empty_soup, "", "boutique-test.com")
+        self.assertEqual(sku1, sku2)
+        expected_suffix = hashlib.sha256("boutique-test.com".encode("utf-8")).hexdigest()[:8].upper()
+        self.assertTrue(sku1.endswith(expected_suffix))
+
+        snippets = server.generate_auto_fix_snippets("shop.com", {"name": "Test Product"})
+        self.assertIn("llmsTxt", snippets)
+        self.assertIn("schemaJson", snippets)
+
+    def test_25_robots_txt_scoping_and_robust_parsing(self):
+        """Robots.txt : isolation par bloc User-agent et tolérance CRLF/espaces."""
+        # 1. Un autre bot bloqué ne doit pas impacter gptbot
+        content_scoped = (
+            "User-agent: badbot\r\n"
+            "Disallow: /\r\n\r\n"
+            "User-agent: gptbot\r\n"
+            "Disallow: /admin\r\n"
+        )
+        disallowed, global_blocked = server.parse_robots_txt(content_scoped)
+        self.assertNotIn("gptbot", disallowed)
+        self.assertFalse(global_blocked)
+
+        # 2. Bloquage explicite gptbot avec Disallow:/ sans espace et CRLF
+        content_gptbot_blocked = "User-agent: GPTBot\r\nDisallow:/\r\n"
+        disallowed, global_blocked = server.parse_robots_txt(content_gptbot_blocked)
+        self.assertIn("gptbot", disallowed)
+
+        # 3. Bloquage global User-agent: *
+        content_global = "User-agent: *\nDisallow: / # tout bloquer"
+        disallowed, global_blocked = server.parse_robots_txt(content_global)
+        self.assertTrue(global_blocked)
+
+    def test_26_robots_and_llms_scheme_http(self):
+        """Schéma robots.txt et llms.txt : respect du protocole http si URL source en http."""
+        import asyncio
+
+        class FakeClient:
+            def __init__(self):
+                self.called_urls = []
+            async def get(self, url, timeout=None):
+                self.called_urls.append(url)
+                return httpx.Response(404)
+
+        fake_client = FakeClient()
+        asyncio.run(server.fetch_robots_txt(fake_client, "myshop.fr", scheme="http"))
+        self.assertEqual(fake_client.called_urls[0], "http://myshop.fr/robots.txt")
+
+        fake_client.called_urls.clear()
+        asyncio.run(server.check_llms_txt(fake_client, "myshop.fr", scheme="http"))
+        self.assertTrue(all(u.startswith("http://") for u in fake_client.called_urls))
+
+    def test_27_datadome_header_value_detection(self):
+        """WAF DataDome : détection via les valeurs d'en-tête (Server, Set-Cookie)."""
+        resp_headers = {"server": "DataDome Protection", "content-type": "text/html"}
+        content_lower = "<html><body>Access Denied</body></html>"
+        is_datadome = "datadome" in content_lower or any("datadome" in k or "datadome" in str(v).lower() for k, v in resp_headers.items())
+        self.assertTrue(is_datadome)
+
+    def test_28_pdf_generator_color_and_escaping(self):
+        """PDF Generator : échappement XML (<, >, &) et formatage couleur hexadécimal."""
+        import pdf_generator
+        if not pdf_generator.REPORTLAB_AVAILABLE:
+            self.skipTest("ReportLab non disponible")
+
+        malicious_data = {
+            "name": "Super <Boutique> & Co",
+            "domain": "http://shop.com?a=1&b=2",
+            "score": 85,
+            "statusLabel": "Agent Ready <Vérifié>",
+            "summary": "Résumé contenant des <balises> & caractères spéciaux.",
+            "pillars": {
+                "crawl": {"score": 90, "status": "OK <200>"},
+                "schema": {"score": 80, "status": "Schema & JSON-LD"},
+                "tokens": {"score": 85, "status": "Pure"},
+                "simulator": {"score": 80, "status": "OK", "details": ["Vérification <1>", "Test & 2"]},
+                "proto": {"score": 70, "status": "Protocols"}
+            },
+            "aiView": {
+                "extractedPrice": "49.00 EUR <TTC>",
+                "stockStatus": "En Stock & Dispo",
+                "shippingTerms": "Livraison <24h>",
+                "hallucinationRisk": "Faible <1%>"
+            }
+        }
+
+        # Ne doit pas lever d'erreur de parsing XML ReportLab
+        pdf_bytes = pdf_generator.generate_pdf_report(malicious_data, email="contact<buyer>@shop.com")
+        self.assertIsInstance(pdf_bytes, bytes)
+        self.assertGreater(len(pdf_bytes), 1000)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
 

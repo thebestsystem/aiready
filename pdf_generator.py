@@ -25,6 +25,16 @@ except ImportError:  # pragma: no cover - dépendance optionnelle hors prod
     REPORTLAB_AVAILABLE = False
 
 
+from xml.sax.saxutils import escape as _sax_escape
+
+
+def _escape_xml(val: Any) -> str:
+    """Échappe le texte dynamique pour éviter les erreurs de parsing XML dans ReportLab Paragraph."""
+    if val is None:
+        return ""
+    return _sax_escape(str(val))
+
+
 def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None) -> bytes:
     """Génère le PDF d'audit (bytes). Lève RuntimeError si ReportLab absent."""
     if not REPORTLAB_AVAILABLE:
@@ -115,16 +125,23 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
     summary_text = audit_data.get("summary") or "Évaluation de la préparation de la boutique pour les agents d'achat IA."
 
     score_color = c_emerald if score >= 80 else (c_amber if score >= 50 else c_rose)
+    score_color_hex = f"#{score_color.hexval()[2:]}"
 
-    story.append(Paragraph(f"Audit Technique : {name}", title_style))
+    safe_name = _escape_xml(name)
+    safe_domain = _escape_xml(domain)
+    safe_status_label = _escape_xml(status_label)
+    safe_summary = _escape_xml(summary_text)
+    safe_email = _escape_xml(email) if email else "Confidentiel"
+
+    story.append(Paragraph(f"Audit Technique : {safe_name}", title_style))
     story.append(Spacer(1, 4))
-    story.append(Paragraph(f"URL cible : <u>{domain}</u>", normal_style))
+    story.append(Paragraph(f"URL cible : <u>{safe_domain}</u>", normal_style))
     story.append(Spacer(1, 12))
 
     summary_box_data = [
         [
-            Paragraph(f"<font size=28 color='{score_color.hexval()}'><b>{score}</b></font><font size=14 color='#64748b'>/100</font><br/><br/><b>Statut :</b> {status_label}", normal_style),
-            Paragraph(f"<b>Synthèse de l'Audit :</b><br/>{summary_text}<br/><br/><i>Client destinataire : {email or 'Confidentiel'}</i>", normal_style)
+            Paragraph(f"<font size=28 color='{score_color_hex}'><b>{score}</b></font><font size=14 color='#64748b'>/100</font><br/><br/><b>Statut :</b> {safe_status_label}", normal_style),
+            Paragraph(f"<b>Synthèse de l'Audit :</b><br/>{safe_summary}<br/><br/><i>Client destinataire : {safe_email}</i>", normal_style)
         ]
     ]
     t_summary = Table(summary_box_data, colWidths=[160, 380])
@@ -150,13 +167,12 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
 
     pillars_rows = [
         [Paragraph("<b>Pilier</b>", normal_style), Paragraph("<b>Pondération</b>", normal_style), Paragraph("<b>Score</b>", normal_style), Paragraph("<b>Statut Technique</b>", normal_style)],
-        [Paragraph("1. Crawl & Bot Access (robots.txt / WAF)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{p_crawl.get('score', '--')}/100</b>", normal_style), Paragraph(str(p_crawl.get('status', '--')), normal_style)],
-        [Paragraph("2. Schema.org & JSON-LD Déterministe", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{p_schema.get('score', '--')}/100</b>", normal_style), Paragraph(str(p_schema.get('status', '--')), normal_style)],
-        [Paragraph("3. Pureté Sémantique & Économie de Tokens", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{p_tokens.get('score', '--')}/100</b>", normal_style), Paragraph(str(p_tokens.get('status', '--')), normal_style)],
-        [Paragraph("4. AI Buyer Simulator (Google Gemini Flash)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{p_sim.get('score', '--')}/100</b>", normal_style), Paragraph(str(p_sim.get('status', '--')), normal_style)],
-        [Paragraph("5. Protocoles Agentiques (llms.txt / MCP)", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{p_proto.get('score', '--')}/100</b>", normal_style), Paragraph(str(p_proto.get('status', '--')), normal_style)],
+        [Paragraph("1. Crawl & Bot Access (robots.txt / WAF)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
+        [Paragraph("2. Schema.org & JSON-LD Déterministe", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
+        [Paragraph("3. Pureté Sémantique & Économie de Tokens", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_tokens.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_tokens.get('status', '--')), normal_style)],
+        [Paragraph("4. AI Buyer Simulator (Google Gemini Flash)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
+        [Paragraph("5. Protocoles Agentiques (llms.txt / MCP)", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
     ]
-
 
     t_pillars = Table(pillars_rows, colWidths=[220, 70, 70, 180])
     t_pillars.setStyle(TableStyle([
@@ -176,13 +192,16 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
 
     ai_view = audit_data.get("aiView", {})
     gemini_details = p_sim.get("details", [])
-    gemini_txt = "<br/>• ".join(gemini_details) if gemini_details else "Capacité d'achat autonome vérifiée."
+    if gemini_details:
+        gemini_txt = "<br/>• ".join(_escape_xml(d) for d in gemini_details)
+    else:
+        gemini_txt = "Capacité d'achat autonome vérifiée."
 
     sim_table_data = [
-        [Paragraph("<b>Prix extrait par l'agent :</b>", normal_style), Paragraph(str(ai_view.get("extractedPrice", "--")), normal_style)],
-        [Paragraph("<b>Disponibilité du stock :</b>", normal_style), Paragraph(str(ai_view.get("stockStatus", "--")), normal_style)],
-        [Paragraph("<b>Conditions de livraison :</b>", normal_style), Paragraph(str(ai_view.get("shippingTerms", "--")), normal_style)],
-        [Paragraph("<b>Indice de risque d'hallucination :</b>", normal_style), Paragraph(f"<b>{ai_view.get('hallucinationRisk', '--')}</b>", normal_style)],
+        [Paragraph("<b>Prix extrait par l'agent :</b>", normal_style), Paragraph(_escape_xml(ai_view.get("extractedPrice", "--")), normal_style)],
+        [Paragraph("<b>Disponibilité du stock :</b>", normal_style), Paragraph(_escape_xml(ai_view.get("stockStatus", "--")), normal_style)],
+        [Paragraph("<b>Conditions de livraison :</b>", normal_style), Paragraph(_escape_xml(ai_view.get("shippingTerms", "--")), normal_style)],
+        [Paragraph("<b>Indice de risque d'hallucination :</b>", normal_style), Paragraph(f"<b>{_escape_xml(ai_view.get('hallucinationRisk', '--'))}</b>", normal_style)],
         [Paragraph("<b>Points de contrôle analysés :</b>", normal_style), Paragraph(f"• {gemini_txt}", normal_style)],
     ]
     t_sim = Table(sim_table_data, colWidths=[180, 360])

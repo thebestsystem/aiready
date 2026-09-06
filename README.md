@@ -37,13 +37,19 @@ Toute la stratégie, l'analyse de marché et les spécifications techniques du p
 
 ---
 
-## 🛠️ Stack Technique Cible
+## 🛠️ Stack Technique
 
-- **Frontend :** Next.js 15 (App Router), Tailwind CSS, Framer Motion, Lucide Icons.
-- **Backend & Scanning Engine :** Python (FastAPI) / Node.js, Playwright (Headless browser), Cheerio.
-- **IA & Évaluation Sémantique :** Google Gemini API (Interactions API / Structured Outputs).
-- **Protocoles Agentiques :** Serveur Model Context Protocol (MCP) + Générateur `llms.txt`.
-- **Base de Données & Cache :** PostgreSQL (Prisma/Drizzle) + Redis (Queue BullMQ).
+### ⚡ Stack Actuelle (MVP de Production Déployé)
+- **Backend & Moteur d'Audit :** Python 3.11+ avec **FastAPI**, **Uvicorn**, **httpx** (requêtes asynchrones avec protection SSRF stricte et rate-limiting mémoire par fenêtre glissante), **BeautifulSoup4** pour l'extraction sémantique (DOM, JSON-LD, microdata).
+- **Frontend :** Single Page Application en **Vanilla JavaScript (ES Modules)**, design system CSS moderne (variables, responsive, dark glassmorphism, animations fluides), FontAwesome & icônes SVG.
+- **IA & Simulation Agentique :** **Google GenAI SDK** (`google-genai` officiel, modèles `gemini-3.6-flash` & `gemini-3.1-flash-lite`), avec mode déterministe certifié haute fidélité sans clé pour le scan principal.
+- **Génération de Rapports :** **ReportLab** (génération de rapports PDF professionnels et sécurisés contre les injections de balises XML).
+- **Persistance & Intégrations :** **PostgreSQL** managé via `psycopg2-binary` (avec résilience et repli automatique sur stockage CSV local), webhook de notification **Slack/Discord** et envoi d'emails transactionnels **Resend**.
+
+### 🚀 Roadmap / Stack Cible (P2 / V2)
+- **Frontend :** Migration vers Next.js 15 (App Router), Tailwind CSS & Framer Motion.
+- **Scanning Asynchrone à Grande Échelle :** Workers distribués avec Redis & BullMQ pour les audits multi-pages en file d'attente.
+- **Rendu JavaScript Lourd :** Support Playwright / Headless Chromium pour les boutiques en rendu 100% Client-Side (CSR) complexe.
 
 ---
 
