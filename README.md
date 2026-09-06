@@ -47,8 +47,21 @@ Toute la stratégie, l'analyse de marché et les spécifications techniques du p
 
 ---
 
-## 🚀 Prochaines Étapes
+---
 
-1. Implémenter le moteur de crawling & d'analyse de pages produits.
-2. Développer l'interface interactive de scan avec le comparateur visuel *« Human View vs. AI Agent View »*.
-3. Intégrer le générateur de correctifs 1-clic (`llms.txt` + JSON-LD enrichi).
+## ☁️ Déploiement Cloud (Railway / Render)
+
+Le projet est configuré pour être déployé en 1 clic sur **Railway** (ou **Render**) avec son serveur unifié FastAPI (Backend API + Frontend statique) :
+
+1. **Créer un dépôt GitHub** (privé ou public) nommé par exemple `agent-ready`.
+2. **Lier le projet local à GitHub :**
+   ```bash
+   git remote add origin https://github.com/VOTRE_COMPTE/agent-ready.git
+   git push -u origin main
+   ```
+3. **Sur Railway :**
+   - Cliquez sur **New Project** > **Deploy from GitHub repo**.
+   - Sélectionnez votre dépôt `agent-ready`.
+   - Railway détecte automatiquement le `Procfile` et `railway.json`.
+   - Dans **Variables**, ajoutez optionnellement votre `GEMINI_API_KEY`.
+   - Dans les paramètres réseau (**Settings > Networking**), cliquez sur **Generate Domain** pour obtenir votre URL publique HTTPS gratuite.
