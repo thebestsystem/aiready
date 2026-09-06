@@ -506,6 +506,154 @@ class TestE2EPipeline(unittest.TestCase):
 
         server._lead_limiter.reset()
 
+    # ------------------------------------------------------------------
+    # Tests de non-régression Bugs A, B, C
+    # ------------------------------------------------------------------
+    def test_17_bug_a_robots_absent_vs_permissive(self):
+        """Bug A : Distinguer robots.txt absent (message honnête 85/100) de présent + permissif (100/100)."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        fake_page = MagicMock()
+        fake_page.status_code = 200
+        fake_page.headers = {"content-type": "text/html"}
+        fake_page.text = "<html><head><title>Boutique</title></head><body><h1>Boutique Test</h1></body></html>"
+
+        # Cas 1 : robots.txt absent (404 / found=False)
+        robots_absent = {"found": False, "global_disallowed": False, "disallowed_bots": [], "raw": ""}
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_page), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=robots_absent), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value={"found": False, "path": None, "content": None}):
+            res = self.client.post("/api/scan", json={"url": "https://boutique-sans-robots.com/p1"},
+                                   headers={"X-Forwarded-For": "10.100.1.1"})
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+            crawl_pillar = data["pillars"]["crawl"]
+            # Ne doit PAS être 100/100
+            self.assertEqual(crawl_pillar["score"], 85)
+            # Message honnête : absent
+            self.assertTrue(any("robots.txt absent" in d for d in crawl_pillar["details"]))
+            self.assertFalse(any("autorise les bots IA majeurs" in d for d in crawl_pillar["details"]))
+
+        server._scan_limiter.reset()
+
+        # Cas 2 : robots.txt présent et permissif (found=True, allowed)
+        robots_permissive = {"found": True, "global_disallowed": False, "disallowed_bots": [], "raw": "User-agent: *\nAllow: /"}
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_page), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=robots_permissive), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value={"found": False, "path": None, "content": None}):
+            res = self.client.post("/api/scan", json={"url": "https://boutique-avec-robots.com/p1"},
+                                   headers={"X-Forwarded-For": "10.100.1.2"})
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+            crawl_pillar = data["pillars"]["crawl"]
+            self.assertEqual(crawl_pillar["score"], 100)
+            self.assertTrue(any("robots.txt présent et permissif" in d for d in crawl_pillar["details"]))
+
+        server._scan_limiter.reset()
+
+    def test_18_bug_b_html_price_extraction_and_simulator(self):
+        """Bug B : Extraction du prix et métadonnées depuis le HTML en clair quand JSON-LD est absent."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        # Simule exactement la structure de books.toscrape.com
+        html_books = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>A Light in the Attic | Books to Scrape - Sandbox</title>
+        </head>
+        <body>
+            <h1>A Light in the Attic</h1>
+            <p class="price_color">£51.77</p>
+            <p class="instock availability">In stock (22 available)</p>
+            <table>
+                <tr><th>UPC</th><td>a897fe39b1053632</td></tr>
+                <tr><th>Product Type</th><td>Books</td></tr>
+                <tr><th>Price (incl. tax)</th><td>£51.77</td></tr>
+            </table>
+        </body>
+        </html>
+        """
+
+        fake_page = MagicMock()
+        fake_page.status_code = 200
+        fake_page.headers = {"content-type": "text/html; charset=utf-8"}
+        fake_page.text = html_books
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_page), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock,
+                   return_value={"found": False, "global_disallowed": False, "disallowed_bots": [], "raw": ""}), \
+             patch("server.check_llms_txt", new_callable=AsyncMock,
+                   return_value={"found": False, "path": None, "content": None}):
+            res = self.client.post(
+                "/api/scan",
+                json={"url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"},
+                headers={"X-Forwarded-For": "10.100.2.1"}
+            )
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+
+            # 1. extractedPrice ne doit plus être 'Inconnu EUR'
+            ai_view = data["aiView"]
+            self.assertIn("51.77", ai_view["extractedPrice"])
+            self.assertIn("GBP", ai_view["extractedPrice"])
+            self.assertNotIn("Inconnu", ai_view["extractedPrice"])
+
+            # 2. Nom du produit extrait proprement
+            self.assertEqual(data["name"], "A Light in the Attic")
+
+            # 3. Simulator : score supérieur à 30 (points prix + stock attribués)
+            sim_pillar = data["pillars"]["simulator"]
+            self.assertGreaterEqual(sim_pillar["score"], 55)
+            self.assertIn("Prix extrait du HTML en clair", " ".join(sim_pillar["details"]))
+            self.assertNotEqual(sim_pillar["status"], "Risque ÉLEVÉ (50%+)")
+
+            # 4. Stock détecté
+            self.assertIn("IN_STOCK", ai_view["stockStatus"])
+
+            # 5. Product Data
+            prod = data["productData"]
+            self.assertEqual(prod["price"], "51.77")
+            self.assertEqual(prod["currency"], "GBP")
+            self.assertEqual(prod["sku"], "a897fe39b1053632")
+
+        server._scan_limiter.reset()
+
+    def test_19_bug_c_autofix_snippets_clean_placeholders(self):
+        """Bug C : Auto-Fix ne doit jamais générer price: None, SKU-AUTO-01, ou agent@www..."""
+        # Test 1 : Site avec domaine www. et prix extrait
+        prod_data = {
+            "name": "Chaise Ergonomique Pro",
+            "price": "149.99",
+            "currency": "EUR",
+            "sku": "CHAIR-ERG-01"
+        }
+        snippets = server.generate_auto_fix_snippets("www.welcomeoffice.com", prod_data)
+
+        # Pas de www. dans les adresses de contact ou configs
+        self.assertNotIn("@www.", snippets["llmsTxt"])
+        self.assertIn("contact@welcomeoffice.com", snippets["llmsTxt"])
+        self.assertIn('"welcomeoffice-com-agent"', snippets["mcpConfig"])
+        self.assertIn('--store=welcomeoffice.com', snippets["mcpConfig"])
+
+        # JSON-LD avec prix et nom corrects
+        self.assertIn('"price": "149.99"', snippets["schemaJson"])
+        self.assertIn('"name": "Chaise Ergonomique Pro"', snippets["schemaJson"])
+        self.assertIn('"sku": "CHAIR-ERG-01"', snippets["schemaJson"])
+        self.assertNotIn('"None"', snippets["schemaJson"])
+        self.assertNotIn("SKU-AUTO-01", snippets["schemaJson"])
+        self.assertNotIn("Produit E-commerce", snippets["schemaJson"])
+
+        # Test 2 : Fiche vide / dégradée -> fallback propre et jamais 'None'
+        empty_prod = {"name": None, "price": "Inconnu", "sku": None}
+        snippets_empty = server.generate_auto_fix_snippets("boutique.fr", empty_prod)
+        self.assertNotIn('"price": "None"', snippets_empty["schemaJson"])
+        self.assertNotIn('"None"', snippets_empty["schemaJson"])
+        self.assertNotIn("SKU-AUTO-01", snippets_empty["schemaJson"])
+        self.assertNotIn("Produit E-commerce", snippets_empty["schemaJson"])
+        self.assertIn("contact@boutique.fr", snippets_empty["llmsTxt"])
 
 
 if __name__ == "__main__":

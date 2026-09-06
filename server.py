@@ -14,7 +14,7 @@ import asyncio
 import socket
 import ipaddress
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import urlparse, urljoin
 
 from dotenv import load_dotenv
@@ -574,7 +574,19 @@ def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
             "status": "Aucun schéma Product JSON-LD trouvé",
             "has_product": False,
             "details": ["Balise @type: Product absente du code source", "L'IA ne peut pas identifier les attributs certifiés"],
-            "product_data": {}
+            "product_data": {
+                "name": None,
+                "sku": None,
+                "image": None,
+                "price": "Inconnu",
+                "currency": "EUR",
+                "has_shipping": False,
+                "has_return": False,
+                "has_stock": False,
+                "description": "",
+                "price_source": None,
+                "stock_source": None
+            }
         }
 
     score = 40
@@ -615,10 +627,12 @@ def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     has_stock = False
 
     if isinstance(offers, dict):
-        if "price" in offers:
+        raw_price = offers.get("price")
+        if raw_price is not None and str(raw_price).strip() not in ("", "None", "null", "undefined"):
             has_price = True
-            price_val = str(offers.get("price"))
-            currency = str(offers.get("priceCurrency", "EUR"))
+            price_val = str(raw_price).strip()
+            raw_curr = offers.get("priceCurrency")
+            currency = str(raw_curr).strip().upper() if raw_curr and str(raw_curr).strip() not in ("", "None", "null") else "EUR"
             score += 20
             details.append(f"Prix explicite trouvé : {price_val} {currency}")
         
@@ -656,7 +670,9 @@ def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
             "has_shipping": has_shipping,
             "has_return": has_return,
             "has_stock": has_stock,
-            "description": prod_desc[:200]
+            "description": prod_desc[:200],
+            "price_source": "schema" if has_price else None,
+            "stock_source": "schema" if has_stock else None
         }
     }
 
@@ -836,21 +852,55 @@ Réponds STRICTEMENT en format JSON avec ces champs :
     }
 
 def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, str]:
-    name = prod.get("name") or "Produit E-commerce"
-    price = prod.get("price") if prod.get("price") != "Inconnu" else "49.00"
-    currency = prod.get("currency") or "EUR"
-    sku = prod.get("sku") or "SKU-AUTO-01"
+    clean_domain = domain.lower().strip()
+    if clean_domain.startswith("www."):
+        clean_domain = clean_domain[4:]
 
-    llms_txt = f"""# LLMS.txt pour {domain}
+    # Nom du produit : élimine les placeholders dégradés comme 'Produit E-commerce'
+    name = prod.get("name")
+    if not name or str(name).strip() in ("Produit E-commerce", "Produit sans titre", "None", ""):
+        name = "Produit Boutique"
+    name = str(name).strip().replace('"', '\\"')
+
+    # Prix : garantir un nombre réel et jamais "None" ou "Inconnu"
+    raw_price = prod.get("price")
+    if raw_price and str(raw_price).strip() not in ("Inconnu", "None", "null", "undefined", ""):
+        clean_p = str(raw_price).split()[0].replace(",", ".")
+        m = re.search(r"[0-9]+(?:\.[0-9]{1,2})?", clean_p)
+        price = m.group(0) if m else "49.00"
+    else:
+        price = "49.00"
+
+    # Devise standard
+    raw_curr = prod.get("currency")
+    if not raw_curr or str(raw_curr).strip() in ("None", "null", ""):
+        currency = "EUR"
+    else:
+        currency = str(raw_curr).strip().upper()
+
+    # SKU : éliminer 'SKU-AUTO-01' et placeholders
+    raw_sku = prod.get("sku")
+    if raw_sku and str(raw_sku).strip() not in ("SKU-AUTO-01", "None", "null", ""):
+        sku = str(raw_sku).strip()
+    else:
+        slug = re.sub(r'[^A-Za-z0-9]+', '-', name).strip('-').upper()
+        parts = [p for p in slug.split('-') if len(p) >= 2]
+        if parts:
+            sku_slug = '-'.join(parts[:2])[:10]
+            sku = f"{sku_slug}-01"
+        else:
+            sku = f"{clean_domain.split('.')[0].upper()[:4]}-{abs(hash(name)) % 90000 + 10000}"
+
+    llms_txt = f"""# LLMS.txt pour {clean_domain}
 # Specification: https://llmstxt.org/ v1.0
 # Agentic Commerce Index
 
-> {name} disponible sur {domain}.
+> {name} disponible sur {clean_domain}.
 
 ## Fiches Produits & Spécifications Déterministes
 - [{name}](/products/{sku.lower()}): Prix {price} {currency} TTC. Expédition garantie sous 24-48h.
 - Conditions de retour: 30 jours satisfait ou remboursé.
-- Support et contact agents: agent@{domain}
+- Support et contact agents: contact@{clean_domain}
 """
 
     json_ld = f"""<script type="application/ld+json">
@@ -883,9 +933,9 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
 
     mcp_config = f"""{{
   "mcpServers": {{
-    "{domain.replace('.', '-')}-agent": {{
+    "{clean_domain.replace('.', '-')}-agent": {{
       "command": "npx",
-      "args": ["-y", "@agentready/mcp-server-commerce", "--store={domain}"],
+      "args": ["-y", "@agentready/mcp-server-commerce", "--store={clean_domain}"],
       "capabilities": ["query_stock", "checkout_token"]
     }}
   }}
@@ -971,6 +1021,210 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return candidates[0][1]
 
+    return None
+
+def parse_price_text(text: str) -> Tuple[Optional[str], Optional[str]]:
+    """Parse une chaîne de texte pour extraire un montant numérique et une devise."""
+    if not text:
+        return None, None
+    raw = text.strip()
+
+    currency = None
+    if "£" in raw or "gbp" in raw.lower():
+        currency = "GBP"
+    elif "€" in raw or "eur" in raw.lower():
+        currency = "EUR"
+    elif "$" in raw or "usd" in raw.lower():
+        currency = "USD"
+    elif "chf" in raw.lower():
+        currency = "CHF"
+    elif "cad" in raw.lower():
+        currency = "CAD"
+    elif "aud" in raw.lower():
+        currency = "AUD"
+    elif "¥" in raw or "jpy" in raw.lower():
+        currency = "JPY"
+
+    # Regex pour extraire le montant
+    m = re.search(r'(?:[\$€£¥]\s*)?([0-9]{1,3}(?:[\s,][0-9]{3})*(?:[\.,][0-9]{2}))', raw)
+    if not m:
+        m = re.search(r'(?:[\$€£¥]\s*)?([0-9]{1,6}(?:[\.,][0-9]{1,2})?)', raw)
+
+    if m:
+        num_str = m.group(1).replace(" ", "").replace("\xa0", "")
+        if "," in num_str and "." in num_str:
+            if num_str.rfind(".") > num_str.rfind(","):
+                num_str = num_str.replace(",", "")
+            else:
+                num_str = num_str.replace(".", "").replace(",", ".")
+        elif "," in num_str:
+            num_str = num_str.replace(",", ".")
+        try:
+            val = float(num_str)
+            if 0.01 <= val <= 999999:
+                return f"{val:.2f}", currency or "EUR"
+        except ValueError:
+            pass
+
+    return None, None
+
+def extract_price_from_html(soup: BeautifulSoup) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Extrait le prix depuis les balises OpenGraph/Twitter, Microdata et classes CSS e-commerce."""
+    # 1. Balises méta (OpenGraph / Twitter / Product)
+    for prop in ["product:price:amount", "og:price:amount"]:
+        meta = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
+        if meta and meta.get("content"):
+            c_meta = soup.find("meta", property=prop.replace("amount", "currency")) or soup.find("meta", attrs={"name": prop.replace("amount", "currency")})
+            currency = (c_meta.get("content") if c_meta else None) or "EUR"
+            p_val, _ = parse_price_text(meta["content"])
+            if p_val:
+                return p_val, currency.upper(), f"meta {prop}"
+
+    # Microdata itemprop="price"
+    itemprop_elem = soup.find(attrs={"itemprop": "price"})
+    if itemprop_elem:
+        raw_val = itemprop_elem.get("content") or itemprop_elem.get_text(strip=True)
+        curr_elem = soup.find(attrs={"itemprop": "priceCurrency"})
+        currency = (curr_elem.get("content") or curr_elem.get_text(strip=True)) if curr_elem else None
+        p_val, p_curr = parse_price_text(raw_val)
+        if p_val:
+            return p_val, (currency or p_curr or "EUR").upper(), "microdata itemprop"
+
+    # 2. Sélecteurs CSS fréquents e-commerce
+    price_selectors = [
+        ".price_color",           # books.toscrape et thèmes courants
+        ".current-price",
+        ".product-price",
+        ".product__price",
+        ".price-now",
+        ".special-price",
+        ".offer-price",
+        ".sales-price",
+        ".regular-price",
+        ".entry-price",
+        ".final-price",
+        ".prix-produit",
+        "#product-price",
+        "#price",
+        ".price",
+    ]
+    for sel in price_selectors:
+        for el in soup.select(sel):
+            txt = el.get_text(strip=True)
+            p_val, p_curr = parse_price_text(txt)
+            if p_val:
+                return p_val, p_curr, f"classe {sel}"
+
+    # 3. Tableaux de caractéristiques (ex: <th>Price (incl. tax)</th><td>£51.77</td>)
+    for tr in soup.find_all("tr"):
+        th = tr.find("th")
+        td = tr.find("td")
+        if th and td:
+            th_txt = th.get_text(strip=True).lower()
+            if any(k in th_txt for k in ["price", "prix", "tarif"]):
+                p_val, p_curr = parse_price_text(td.get_text(strip=True))
+                if p_val:
+                    return p_val, p_curr, f"tableau {th.get_text(strip=True)}"
+
+    # 4. Regex dans le texte visible (fallback)
+    body = soup.find("body") or soup
+    body_text = body.get_text(" ", strip=True)
+    m = re.search(r'(?:[\$€£¥]\s*[0-9]+(?:[\.,][0-9]{2})?|[0-9]+(?:[\.,][0-9]{2})?\s*(?:€|EUR|£|GBP|\$|USD))', body_text)
+    if m:
+        p_val, p_curr = parse_price_text(m.group(0))
+        if p_val:
+            return p_val, p_curr, "corps du texte"
+
+    return None, None, None
+
+def extract_product_name_from_html(soup: BeautifulSoup, domain: str) -> Optional[str]:
+    """Extrait le nom du produit depuis OpenGraph, H1 ou Title."""
+    # 1. OpenGraph / Twitter
+    for prop in ["og:title", "twitter:title"]:
+        meta = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
+        if meta and meta.get("content"):
+            title = meta["content"].strip()
+            if len(title) >= 3 and title.lower() != domain.lower():
+                return title
+
+    # 2. <h1> tag
+    h1 = soup.find("h1")
+    if h1:
+        h1_txt = h1.get_text(strip=True)
+        if 3 <= len(h1_txt) <= 120 and not any(bad in h1_txt.lower() for bad in ["accueil", "panier", "connexion", "catalogue", "not found", "404"]):
+            return h1_txt
+
+    # 3. <title> tag nettoyé
+    if soup.title and soup.title.string:
+        raw_title = soup.title.string.strip()
+        for sep in [" | ", " - ", " — ", " – ", " : "]:
+            if sep in raw_title:
+                parts = raw_title.split(sep)
+                if len(parts[0].strip()) >= 3:
+                    raw_title = parts[0].strip()
+                    break
+        clean_domain = domain.lower().replace("www.", "")
+        if clean_domain in raw_title.lower():
+            raw_title = re.sub(re.escape(clean_domain), "", raw_title, flags=re.IGNORECASE).strip(" -|:—–")
+        if len(raw_title) >= 3:
+            return raw_title
+
+    return None
+
+def extract_sku_from_html(soup: BeautifulSoup, product_name: Optional[str], domain: str) -> str:
+    """Extrait le SKU/UPC/EAN depuis le HTML ou génère un code contextuel réaliste."""
+    # 1. Microdata
+    for val in ["sku", "gtin13", "gtin", "productID"]:
+        elem = soup.find(attrs={"itemprop": val})
+        if elem:
+            sku_val = (elem.get("content") or elem.get_text(strip=True)).strip()
+            if 3 <= len(sku_val) <= 32:
+                return sku_val
+
+    # 2. Tableaux de caractéristiques (ex: <th>UPC</th><td>a897fe39b1053632</td>)
+    for tr in soup.find_all("tr"):
+        th = tr.find("th")
+        td = tr.find("td")
+        if th and td:
+            th_txt = th.get_text(strip=True).upper()
+            if any(k in th_txt for k in ["UPC", "SKU", "REF", "RÉF", "EAN", "CODE ARTICLE"]):
+                val = td.get_text(strip=True)
+                if 3 <= len(val) <= 32:
+                    return val
+
+    # 3. Regex dans le texte
+    body_text = soup.get_text(" ", strip=True)
+    m = re.search(r'(?:UPC|SKU|Ref(?:érence)?|EAN|Code article)[:\s#]+([A-Za-z0-9\-_]{4,24})', body_text, re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+
+    # 4. Génération réaliste contextuelle
+    clean_domain = domain.lower().replace("www.", "")
+    domain_prefix = clean_domain.split(".")[0].upper()[:4]
+    if product_name and product_name not in ("Produit E-commerce", "Produit sans titre", "None", ""):
+        slug = re.sub(r'[^A-Za-z0-9]+', '-', product_name).strip('-').upper()
+        parts = [p for p in slug.split('-') if len(p) >= 2]
+        if parts:
+            sku_slug = '-'.join(parts[:2])[:10]
+            return f"{sku_slug}-01"
+
+    return f"{domain_prefix}-{abs(hash(domain)) % 90000 + 10000}"
+
+def extract_stock_from_html(soup: BeautifulSoup) -> Optional[bool]:
+    """Détecte la mention de disponibilité du stock dans le HTML visible."""
+    elem = soup.find(attrs={"itemprop": "availability"})
+    if elem:
+        txt = (elem.get("href") or elem.get("content") or elem.get_text(strip=True)).lower()
+        if "instock" in txt:
+            return True
+        if "outofstock" in txt:
+            return False
+
+    body_text = soup.get_text(" ", strip=True).lower()
+    if re.search(r'\b(in stock|en stock|disponible|en réserve)\b', body_text):
+        return True
+    if re.search(r'\b(out of stock|rupture de stock|épuisé|indisponible)\b', body_text):
+        return False
     return None
 
 @app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
@@ -1060,14 +1314,17 @@ async def scan_url(req: ScanRequest):
     else:
         crawl_details.append("Aucun challenge WAF bloquant détecté")
 
-    if robots_info["global_disallowed"]:
+    if not robots_info.get("found"):
+        crawl_score -= 15
+        crawl_details.append("robots.txt absent : accès crawler libre par défaut, mais sans directives d'indexation IA explicites")
+    elif robots_info["global_disallowed"]:
         crawl_score -= 50
         crawl_details.append("robots.txt bloque tous les crawlers (Disallow: /)")
     elif robots_info["disallowed_bots"]:
         crawl_score -= 30
         crawl_details.append(f"robots.txt bloque : {', '.join(robots_info['disallowed_bots'])}")
     else:
-        crawl_details.append("robots.txt autorise les bots IA majeurs (GPTBot, ClaudeBot, PerplexityBot)")
+        crawl_details.append("robots.txt présent et permissif : autorise les bots IA majeurs (GPTBot, ClaudeBot, PerplexityBot)")
 
     crawl_score = max(10, min(100, crawl_score))
 
@@ -1119,9 +1376,38 @@ async def scan_url(req: ScanRequest):
     json_ld_list = extract_json_ld(soup)
     schema_res = analyze_schema(json_ld_list)
 
+    # Enrichissement avec les données extraites du HTML visible (fallback e-commerce pour sites sans JSON-LD)
+    prod_data = schema_res["product_data"]
+
+    # 1. Nom produit
+    if not prod_data.get("name") or prod_data.get("name") in ("Produit sans titre", "Produit E-commerce", "None"):
+        html_name = extract_product_name_from_html(soup, domain)
+        if html_name:
+            prod_data["name"] = html_name
+
+    # 2. Prix & Devise (Bug B)
+    if not prod_data.get("price") or str(prod_data.get("price")).strip() in ("Inconnu", "None", ""):
+        html_price, html_curr, price_src = extract_price_from_html(soup)
+        if html_price:
+            prod_data["price"] = html_price
+            prod_data["currency"] = html_curr or "EUR"
+            prod_data["price_source"] = "html"
+            prod_data["price_detail"] = price_src
+
+    # 3. SKU (Bug C)
+    if not prod_data.get("sku") or prod_data.get("sku") in ("SKU-AUTO-01", "None", ""):
+        prod_data["sku"] = extract_sku_from_html(soup, prod_data.get("name"), domain)
+
+    # 4. Stock
+    if not prod_data.get("has_stock"):
+        html_stock = extract_stock_from_html(soup)
+        if html_stock is not None:
+            prod_data["has_stock"] = html_stock
+            prod_data["stock_source"] = "html"
+
     # Extraire la vraie photo du produit sans sauvegarde disque
-    prod_image = extract_best_product_image(soup, url, schema_res["product_data"].get("image"))
-    schema_res["product_data"]["image"] = prod_image
+    prod_image = extract_best_product_image(soup, url, prod_data.get("image"))
+    prod_data["image"] = prod_image
 
     # PILIER 3 : Pureté Sémantique & Tokens
     semantic_res = analyze_semantic_purity(soup, len(html_content))
@@ -1129,10 +1415,14 @@ async def scan_url(req: ScanRequest):
     # PILIER 4 : AI Buyer Simulator (100% Déterministe en V1 - Zéro appel LLM au scan)
     sim_score = 30
     sim_details = []
-    prod_data = schema_res["product_data"]
-    if prod_data.get("price") and prod_data.get("price") != "Inconnu":
+    price_val = prod_data.get("price")
+    price_source = prod_data.get("price_source")
+    if price_val and str(price_val).strip() not in ("Inconnu", "None", ""):
         sim_score += 25
-        sim_details.append("Prix certifié : L'agent IA peut présenter le montant exact")
+        if price_source == "schema":
+            sim_details.append(f"Prix certifié Schema.org : {price_val} {prod_data.get('currency', 'EUR')}")
+        else:
+            sim_details.append(f"Prix extrait du HTML en clair : {price_val} {prod_data.get('currency', 'EUR')} (lisible par l'agent IA, certification Schema recommandée)")
     else:
         sim_details.append("Prix incertain ou masqué par JavaScript")
 
@@ -1148,7 +1438,10 @@ async def scan_url(req: ScanRequest):
 
     if prod_data.get("has_stock"):
         sim_score += 10
-        sim_details.append("Stock disponible confirmé")
+        if prod_data.get("stock_source") == "schema":
+            sim_details.append("Stock disponible certifié (Schema.org)")
+        else:
+            sim_details.append("Stock disponible détecté dans le HTML")
 
     sim_risk = "FAIBLE (0-5%)" if sim_score >= 80 else ("MOYEN (20-35%)" if sim_score >= 55 else "ÉLEVÉ (50%+)")
     sim_res = {
@@ -1213,12 +1506,18 @@ async def scan_url(req: ScanRequest):
             severity="critical"
         ))
     
-    prod_info = schema_res["product_data"]
-    if not prod_info.get("price") or prod_info.get("price") == "Inconnu":
+    prod_info = prod_data
+    if not prod_info.get("price") or str(prod_info.get("price")).strip() in ("Inconnu", "None", ""):
         broken_items.append(BrokenItem(
-            title="Prix et offre (Offer) absents du balisage Schema.org",
+            title="Prix et offre (Offer) absents du code source",
             impact="L'agent IA ne peut pas garantir le montant à l'acheteur et refuse de recommander le panier.",
             severity="critical"
+        ))
+    elif prod_info.get("price_source") != "schema":
+        broken_items.append(BrokenItem(
+            title="Prix non certifié dans Schema.org (détecté uniquement en HTML brut)",
+            impact="L'agent IA doit inférer le prix depuis le DOM avec un risque d'ambiguïté sur les devises ou remises.",
+            severity="warning"
         ))
     elif not prod_info.get("has_shipping") or not prod_info.get("has_return"):
         broken_items.append(BrokenItem(
@@ -1265,8 +1564,16 @@ async def scan_url(req: ScanRequest):
         badge_class = "badge-blind"
         summary = f"Ce site est difficilement lisible ou bloqué pour les agents IA. Risque d'hallucination élevé lors des recherches d'achat."
 
-    prod_name = schema_res["product_data"].get("name") or page_title
-    extracted_price = f"{schema_res['product_data'].get('price', 'Inconnu')} {schema_res['product_data'].get('currency', 'EUR')}"
+    prod_name = prod_data.get("name") or page_title
+    raw_p = prod_data.get("price")
+    curr = prod_data.get("currency", "EUR")
+    if raw_p and str(raw_p).strip() not in ("Inconnu", "None", ""):
+        if prod_data.get("price_source") == "html":
+            extracted_price = f"{raw_p} {curr} (Extrait HTML)"
+        else:
+            extracted_price = f"{raw_p} {curr}"
+    else:
+        extracted_price = f"Inconnu {curr}"
 
     return AuditResult(
         domain=url,
@@ -1320,13 +1627,15 @@ async def scan_url(req: ScanRequest):
         aiView={
             "tokens": f"{semantic_res['tokens']} tokens",
             "extractedPrice": extracted_price,
-            "stockStatus": "IN_STOCK (Confirmé Schema)" if schema_res["product_data"].get("has_stock") else "UNKNOWN (Non explicité dans JSON-LD)",
-            "shippingTerms": "Livraison spécifiée dans Schema" if schema_res["product_data"].get("has_shipping") else "MISSING (hasMerchantReturnPolicy / shippingDetails absent)",
+            "stockStatus": "IN_STOCK (Confirmé Schema)" if prod_data.get("stock_source") == "schema" else (
+                "IN_STOCK (Détecté HTML)" if prod_data.get("has_stock") else "UNKNOWN (Non explicité dans JSON-LD)"
+            ),
+            "shippingTerms": "Livraison spécifiée dans Schema" if prod_data.get("has_shipping") else "MISSING (hasMerchantReturnPolicy / shippingDetails absent)",
             "hallucinationRisk": sim_res["hallucination_risk"],
             "botAccess": "AUTORISÉS" if crawl_score >= 70 else "RESTREINT / BLOCKED"
         },
         autoFix=autofix_files,
-        productData=schema_res["product_data"],
+        productData=prod_data,
         isWafBlocked=is_waf_blocked,
         wafDetails=waf_details,
         geminiLive=False
