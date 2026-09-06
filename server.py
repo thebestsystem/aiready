@@ -72,6 +72,25 @@ else:
         allow_headers=["*"],
     )
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """En-têtes de sécurité HTTP durcis (CSP, HSTS, X-Content-Type-Options, etc.)."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+        "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+        "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; "
+        "img-src 'self' data: https: http:; "
+        "connect-src 'self' https://generativelanguage.googleapis.com;"
+    )
+    return response
+
 # ==========================================================================
 # Rate-limit anti-abus (TACHE-01) — fenêtre glissante en mémoire par IP
 # ==========================================================================
@@ -319,6 +338,7 @@ class AuditResult(BaseModel):
     isWafBlocked: bool = False
     wafDetails: Optional[Dict[str, str]] = None
     geminiLive: bool = False
+    isProductPage: bool = True
 
 # Common Headers to avoid naive bot blockades while identifying as auditor
 HEADERS = {
@@ -1303,14 +1323,25 @@ async def scan_url(req: ScanRequest):
         except HTTPException:
             await _cancel_scan_tasks(robots_task, llms_task)
             raise
+        except (socket.gaierror, httpx.ConnectError) as e:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            err_str = str(e).lower()
+            if any(k in err_str for k in ["name or service not known", "getaddrinfo failed", "nodename nor servname", "errno -2", "errno 11001"]):
+                raise HTTPException(status_code=400, detail="Nom de domaine introuvable. Vérifiez l'adresse ou assurez-vous que le site est bien en ligne.")
+            raise HTTPException(status_code=400, detail=f"Impossible d'établir une connexion avec le serveur distant ({domain}).")
+        except httpx.TimeoutException:
+            await _cancel_scan_tasks(robots_task, llms_task)
+            raise HTTPException(status_code=408, detail=f"Délai d'attente dépassé ({SCAN_FETCH_TIMEOUT_SECONDS}s). Le site {domain} met trop de temps à répondre.")
         except Exception as e:
             await _cancel_scan_tasks(robots_task, llms_task)
-            raise HTTPException(status_code=400, detail=f"Impossible de joindre l'URL : {str(e)}")
+            clean_err = re.sub(r'\[Errno\s*[^\]]+\]', '', str(e)).strip()
+            raise HTTPException(status_code=400, detail=f"Impossible de joindre l'URL : {clean_err or 'erreur réseau'}")
 
         status_code = page_resp.status_code
 
-        # 2. Garde-fou statut HTTP principal (TACHE-02) : ne JAMAIS analyser une page d'erreur.
-        # Mapping explicite pour ne pas que notre réponse se confonde avec notre propre 429.
+        # 2. Garde-fou statut HTTP principal (TACHE-02) : ne JAMAIS analyser une page d'erreur 404/5xx.
+        # Tolérance spéciale 403 : si le site répond 403 avec un challenge anti-bot (Cloudflare, DataDome),
+        # on continue pour auditer le blocage WAF (Pilier 1) au lieu de crasher.
         if status_code == 404:
             await _cancel_scan_tasks(robots_task, llms_task)
             raise HTTPException(status_code=404, detail="Le site a répondu HTTP 404 — page introuvable, rien d'analysable.")
@@ -1318,8 +1349,20 @@ async def scan_url(req: ScanRequest):
             await _cancel_scan_tasks(robots_task, llms_task)
             raise HTTPException(status_code=502, detail=f"Le site a répondu HTTP {status_code} — erreur serveur distante, rien d'analysable.")
         if 400 <= status_code < 500:
-            await _cancel_scan_tasks(robots_task, llms_task)
-            raise HTTPException(status_code=400, detail=f"Le site a répondu HTTP {status_code} — page d'erreur, rien d'analysable.")
+            if status_code == 403:
+                raw_hdrs = {k.lower(): v for k, v in page_resp.headers.items()}
+                resp_txt = (page_resp.text or "").lower()
+                is_waf_challenge = (
+                    "cf-ray" in raw_hdrs or "cloudflare" in raw_hdrs.get("server", "").lower() or
+                    any("datadome" in k or "datadome" in str(v).lower() for k, v in raw_hdrs.items()) or
+                    any(sig in resp_txt for sig in ["datadome", "challenge-platform", "cf-mitigated", "captcha", "security check", "access denied", "forbidden"])
+                )
+                if not is_waf_challenge:
+                    await _cancel_scan_tasks(robots_task, llms_task)
+                    raise HTTPException(status_code=400, detail="Le site a répondu HTTP 403 — accès refusé, rien d'analysable.")
+            else:
+                await _cancel_scan_tasks(robots_task, llms_task)
+                raise HTTPException(status_code=400, detail=f"Le site a répondu HTTP {status_code} — page d'erreur, rien d'analysable.")
         if status_code < 200 or 300 <= status_code < 400:
             await _cancel_scan_tasks(robots_task, llms_task)
             raise HTTPException(status_code=400, detail=f"Le site a répondu HTTP {status_code} — réponse non exploitable par le scanner.")
@@ -1465,6 +1508,13 @@ async def scan_url(req: ScanRequest):
     # Extraire la vraie photo du produit sans sauvegarde disque
     prod_image = extract_best_product_image(soup, url, prod_data.get("image"))
     prod_data["image"] = prod_image
+
+    # Qualification de la page : Produit E-commerce vs Page d'information / Institutionnelle
+    has_cart_or_buy = bool(re.search(r'\b(panier|cart|commander|acheter|buy now|add to cart|ajouter au panier)\b', content_lower))
+    has_ecommerce_signals = bool(schema_res.get("has_product") or (prod_data.get("price_source") is not None) or has_cart_or_buy)
+    prod_data["is_product_page"] = has_ecommerce_signals
+    if not has_ecommerce_signals:
+        prod_data["name"] = page_title
 
     # PILIER 3 : Pureté Sémantique & Tokens
     semantic_res = analyze_semantic_purity(soup, len(html_content))
@@ -1621,6 +1671,9 @@ async def scan_url(req: ScanRequest):
         badge_class = "badge-blind"
         summary = f"Ce site est difficilement lisible ou bloqué pour les agents IA. Risque d'hallucination élevé lors des recherches d'achat."
 
+    if not prod_data.get("is_product_page"):
+        summary = f"Page d'information / Non-marchande ({domain}) : aucun signal e-commerce direct (ni bouton panier, ni schéma Product). Évaluation de la pureté sémantique et de l'accessibilité pour agents d'information."
+
     prod_name = prod_data.get("name") or page_title
     raw_p = prod_data.get("price")
     curr = prod_data.get("currency", "EUR")
@@ -1695,7 +1748,8 @@ async def scan_url(req: ScanRequest):
         productData=prod_data,
         isWafBlocked=is_waf_blocked,
         wafDetails=waf_details,
-        geminiLive=False
+        geminiLive=False,
+        isProductPage=prod_data.get("is_product_page", True)
     )
 
 class SimQuestionRequest(BaseModel):
@@ -1895,9 +1949,30 @@ def serve_root():
         return FileResponse(index_file, media_type="text/html")
     raise HTTPException(status_code=404, detail="index.html introuvable")
 
-@app.get("/index.html")
-def serve_index_html():
-    return serve_root()
+@app.get("/favicon.ico")
+def serve_favicon():
+    svg_icon = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#06b6d4"/>
+          <stop offset="100%" stop-color="#3b82f6"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="20" fill="#04060a"/>
+      <circle cx="50" cy="50" r="35" fill="none" stroke="url(#g)" stroke-width="8"/>
+      <path d="M50 25 L50 45 L65 50 L50 55 L50 75" fill="none" stroke="#22d3ee" stroke-width="6" stroke-linecap="round"/>
+    </svg>"""
+    return Response(content=svg_icon, media_type="image/svg+xml")
+
+@app.get("/docs/{filename}")
+def serve_doc(filename: str):
+    safe_filename = os.path.basename(filename)
+    doc_path = os.path.join(_base_dir, "docs", safe_filename)
+    if not os.path.exists(doc_path) or not safe_filename.endswith((".md", ".txt")):
+        raise HTTPException(status_code=404, detail=f"Document '{safe_filename}' introuvable")
+    with open(doc_path, "r", encoding="utf-8") as f:
+        content = f.read()
+    return Response(content=content, media_type="text/markdown; charset=utf-8")
 
 if __name__ == "__main__":
     import uvicorn

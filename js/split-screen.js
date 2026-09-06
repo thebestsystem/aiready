@@ -22,9 +22,17 @@ export class SplitScreenViewer {
 
     if (!this.container || !this.aiSide || !this.handle) return;
 
+    this.updateSliderWidth();
+    window.addEventListener('resize', () => this.updateSliderWidth());
     this.initEvents();
     // Démarrage immédiat sans dépendance bloquante
     this.startAutoAnimation();
+  }
+
+  updateSliderWidth() {
+    if (this.container) {
+      this.container.style.setProperty('--slider-width', `${this.container.clientWidth}px`);
+    }
   }
 
   startAutoAnimation() {

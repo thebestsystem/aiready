@@ -1026,9 +1026,96 @@ Disallow: /api/v1/trebuchet
         self.assertNotIn("gptbot", disallowed_ab, "GPTBot n'est pas bloqué globalement sur Airbnb")
         self.assertEqual(disallowed_ab, [])
 
+    def test_31_http_security_headers_present(self):
+        """Sécurité HTTP : Présence obligatoire des en-têtes HSTS, CSP, nosniff, DENY."""
+        res = self.client.get("/api/health")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.headers.get("x-content-type-options"), "nosniff")
+        self.assertEqual(res.headers.get("x-frame-options"), "DENY")
+        self.assertIn("max-age=", res.headers.get("strict-transport-security", ""))
+        self.assertIn("default-src", res.headers.get("content-security-policy", ""))
+        self.assertEqual(res.headers.get("referrer-policy"), "strict-origin-when-cross-origin")
+
+    def test_32_lead_endpoint_rate_limiting(self):
+        """Sécurité anti-spam : rate limit effectif sur /api/lead."""
+        server._lead_limiter.reset()
+        ip = "192.168.99.12"
+        # Atteindre le plafond
+        for _ in range(server._LEAD_RATE_LIMIT):
+            res = self.client.post(
+                "/api/lead",
+                json={"email": "client@test.fr", "domain": "test.fr"},
+                headers={"X-Forwarded-For": ip}
+            )
+            self.assertEqual(res.status_code, 200)
+
+        # La requête suivante doit lever 429
+        res_blocked = self.client.post(
+            "/api/lead",
+            json={"email": "client@test.fr", "domain": "test.fr"},
+            headers={"X-Forwarded-For": ip}
+        )
+        self.assertEqual(res_blocked.status_code, 429)
+        self.assertIn("Trop de requêtes sur /api/lead", res_blocked.json()["detail"])
+        server._lead_limiter.reset()
+
+    def test_33_non_product_page_classification(self):
+        """Qualification de page : détection page non-marchande / institutionnelle sans faux produit."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        wiki_html = """<!DOCTYPE html><html><head><title>Wikipedia, the free encyclopedia</title></head>
+        <body>
+        <h1>Welcome to Wikipedia</h1>
+        <p>Wikipedia is a free online encyclopedia written collaboratively by people around the world.</p>
+        </body></html>"""
+
+        fake_resp = MagicMock()
+        fake_resp.status_code = 200
+        fake_resp.headers = {"content-type": "text/html"}
+        fake_resp.text = wiki_html
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=fake_resp), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value={"found": True, "global_disallowed": False, "disallowed_bots": []}), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value={"found": False}):
+            res = self.client.post("/api/scan", json={"url": "https://en.wikipedia.org/wiki/Main_Page"})
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+            self.assertFalse(data["isProductPage"])
+            self.assertIn("Page d'information", data["summary"])
+            self.assertEqual(data["name"], "Wikipedia, the free encyclopedia")
+
+    def test_34_sanitized_dns_error_message(self):
+        """Erreurs réseau : élimination des fuites techniques [Errno -2] sur NXDOMAIN."""
+        from unittest.mock import patch, AsyncMock
+        import socket
+        server._scan_limiter.reset()
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, side_effect=socket.gaierror(-2, "Name or service not known")):
+            res = self.client.post("/api/scan", json={"url": "https://store-inexistant-xyz-987.fr/produit"})
+            self.assertEqual(res.status_code, 400)
+            detail = res.json()["detail"]
+            self.assertNotIn("[Errno -2]", detail)
+            self.assertIn("Nom de domaine introuvable", detail)
+
+    def test_35_favicon_and_docs_endpoints(self):
+        """Ressources statiques : /favicon.ico et /docs/*.md répondent avec 200 et types valides."""
+        # 1. Favicon SVG
+        res_fav = self.client.get("/favicon.ico")
+        self.assertEqual(res_fav.status_code, 200)
+        self.assertEqual(res_fav.headers.get("content-type"), "image/svg+xml")
+        self.assertIn("<svg", res_fav.text)
+
+        # 2. Docs PRD
+        res_prd = self.client.get("/docs/PRD.md")
+        self.assertEqual(res_prd.status_code, 200)
+        self.assertIn("text/markdown", res_prd.headers.get("content-type"))
+        self.assertIn("PRD", res_prd.text)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

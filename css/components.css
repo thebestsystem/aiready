@@ -73,6 +73,59 @@
   gap: 1rem;
 }
 
+.nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-medium);
+  color: var(--text-primary);
+  font-size: 1.15rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-toggle:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--cyan-400);
+}
+
+@media (max-width: 900px) {
+  .nav-toggle {
+    display: block;
+  }
+  .nav-menu {
+    display: none;
+    position: absolute;
+    top: 76px;
+    left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    background: rgba(8, 12, 22, 0.98);
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--border-medium);
+    padding: 1.5rem 2rem;
+    gap: 1.25rem;
+    box-shadow: var(--shadow-lg);
+    z-index: 99;
+  }
+  .nav-menu.mobile-open {
+    display: flex;
+  }
+  .nav-cta-group {
+    display: none;
+  }
+  .nav-menu.mobile-open .mobile-cta-row {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
 /* --------------------------------------------------------------------------
    2. HERO SECTION & SCANNER
    -------------------------------------------------------------------------- */
@@ -435,7 +488,8 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 1200px;
+  width: var(--slider-width, 100%);
+  max-width: 1200px;
   height: 100%;
   padding: 2rem;
 }
@@ -443,15 +497,17 @@
 /* Human View Mockup */
 .human-store-mockup {
   display: flex;
-  gap: 2.5rem;
+  gap: 2rem;
   align-items: center;
   height: 100%;
-  max-width: 1100px;
+  max-width: 100%;
 }
 
 .human-product-img {
-  width: 440px;
-  height: 440px;
+  width: 380px;
+  max-width: 45%;
+  height: auto;
+  aspect-ratio: 1;
   border-radius: var(--radius-lg);
   object-fit: cover;
   border: 1px solid var(--border-medium);
@@ -1309,6 +1365,106 @@ pre code {
   box-shadow: 0 4px 24px rgba(239, 68, 68, 0.12);
   animation: fadeIn 0.3s ease-out forwards;
   text-align: left;
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE RULES (Viewport 390px - 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .hero-section {
+    padding-top: 3rem;
+  }
+  .hero-title {
+    font-size: 1.95rem;
+    line-height: 1.25;
+  }
+  p.lead {
+    font-size: 1rem;
+  }
+  .scanner-form {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .scanner-input-wrapper {
+    width: 100%;
+  }
+  .scanner-form .btn-primary {
+    width: 100%;
+    justify-content: center;
+    padding: 0.85rem;
+  }
+  .preset-chips {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .preset-chip {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.65rem;
+  }
+  .split-viewer-container {
+    height: 520px;
+  }
+  .viewer-content-human, .viewer-content-ai {
+    padding: 1rem;
+    width: 100%;
+  }
+  .human-store-mockup {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .human-product-img {
+    width: 140px;
+    max-width: 140px;
+    height: 140px;
+  }
+  .human-title {
+    font-size: 1.35rem;
+  }
+  .human-price {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+  .ai-store-mockup {
+    padding: 0.5rem;
+  }
+  .ai-raw-code {
+    font-size: 0.72rem;
+    padding: 0.75rem;
+  }
+  .audit-header-flex {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .pillars-mini-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .autofix-header-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .pricing-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 2rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .pillars-mini-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .modal-card {
+    padding: 1.25rem !important;
+    margin: 1rem;
+  }
 }
 
 

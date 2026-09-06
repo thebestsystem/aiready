@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AgentReady 🤖 | Fix Your E-commerce Visibility for AI Buyers</title>
   <meta name="description" content="Your products are invisible to AI buyers. AgentReady audits how ChatGPT, Gemini and Claude see your store — and deploys the fix in 1 click. Deterministic, zero LLM variance.">
@@ -37,14 +38,23 @@
         <span>Agent<span class="gradient-text-glow">Ready</span></span>
       </a>
 
+      <button type="button" class="nav-toggle" id="btn-nav-toggle" aria-label="Menu de navigation mobile">
+        <i class="fas fa-bars"></i>
+      </button>
+
       <nav>
-        <ul class="nav-menu">
+        <ul class="nav-menu" id="main-nav-menu">
           <li><a href="#scanner" class="nav-link">Scanner</a></li>
           <li><a href="#split-screen" class="nav-link">Human vs AI</a></li>
           <li><a href="#pillars" class="nav-link">5 Piliers d'Audit</a></li>
           <li><a href="#autofix" class="nav-link">Auto-Fix & Protocoles</a></li>
           <li><a href="#simulator" class="nav-link">Simulateur (Aperçu)</a></li>
           <li><a href="#pricing" class="nav-link">Tarifs</a></li>
+          <li class="mobile-cta-row" style="display: none;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-open-gemini-modal-mobile" style="width: 100%;">
+              <i class="fas fa-brain" style="color: var(--cyan-400);"></i> Configurer Gemini
+            </button>
+          </li>
         </ul>
       </nav>
 
@@ -53,8 +63,8 @@
           <i class="fas fa-brain" style="color: var(--cyan-400);"></i>
           <span id="gemini-nav-status">Gemini IA</span>
         </button>
-        <a href="#scanner" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
-          <i class="fas fa-wrench"></i> Fix AI Visibility
+        <a href="#scanner" class="btn btn-primary btn-sm" id="nav-cta-fix" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
+          <i class="fas fa-wrench"></i> Corriger ma visibilité
         </a>
       </div>
     </div>
@@ -73,21 +83,21 @@
       </div>
 
       <h1 class="hero-title animate-slide-up" id="hero-main-title">
-        Your products are invisible to AI buyers. <br>
-        <span class="gradient-text">Fix them.</span>
+        Vos produits sont invisibles pour les acheteurs IA. <br>
+        <span class="gradient-text">AgentReady les répare.</span>
       </h1>
 
       <p class="lead animate-fade-in" id="hero-main-lead">
-        Get an instant, deterministic audit of how ChatGPT, Gemini and Claude see your store — then deploy clean JSON-LD and an llms.txt in one click. No AI judging your score. No guesswork.
+        Audit 100% déterministe de la façon dont ChatGPT, Gemini et Claude voient votre boutique — correction déployable en un clic. Sans IA juge, sans spéculation.
       </p>
 
       <!-- Language Toggle / Archive FR -->
       <div style="margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 0.5rem; font-size: 0.8rem;">
-        <button type="button" class="lang-toggle-btn active" id="lang-btn-en" style="background: none; border: 1px solid var(--border-medium); color: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer;">
-          🇺🇸 English
-        </button>
-        <button type="button" class="lang-toggle-btn" id="lang-btn-fr" style="background: none; border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer;">
+        <button type="button" class="lang-toggle-btn active" id="lang-btn-fr" style="background: none; border: 1px solid var(--border-medium); color: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer;">
           🇫🇷 Français
+        </button>
+        <button type="button" class="lang-toggle-btn" id="lang-btn-en" style="background: none; border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer;">
+          🇺🇸 English
         </button>
       </div>
 
@@ -100,30 +110,30 @@
               type="text" 
               id="scanner-url-input" 
               class="scanner-input" 
-              placeholder="Enter your product or store URL (e.g. my-store.com/products/jacket)"
+              placeholder="Entrez l'URL de votre produit ou boutique (ex: ma-boutique.fr/products/veste)"
               autocomplete="off"
             >
           </div>
           <button type="submit" class="btn btn-primary scanner-btn" id="btn-run-scan" style="background: linear-gradient(135deg, #ef4444, #f43f5e); border-color: #ef4444;">
-            <i class="fas fa-wrench"></i> Fix my AI visibility
+            <i class="fas fa-bolt"></i> Scanner ma boutique
           </button>
         </form>
 
         <div class="scanner-subtext">
-          <span>⚡ Free scan · No signup · 2 seconds · 100% Deterministic</span>
+          <span id="scanner-subtext-label">⚡ Scan gratuit · Sans inscription · Résultat en 2 secondes · 100% Déterministe</span>
         </div>
 
         <!-- Preset Chips -->
         <div class="preset-chips">
           <span>Exemples en 1-clic :</span>
-          <button type="button" class="preset-chip" data-preset="blind">
-            🔴 Boutique Non-Optimisée (Agent Blind)
+          <button type="button" class="preset-chip" data-preset="blind" title="Simulation déterministe d'une boutique bloquée">
+            🔴 [Démo Simulation] Shopify Standard (Agent Blind)
           </button>
-          <button type="button" class="preset-chip" data-preset="friction">
-            🟡 WooCommerce Standard (Agent Friction)
+          <button type="button" class="preset-chip" data-preset="friction" title="Simulation déterministe avec données partielles">
+            🟡 [Démo Simulation] WooCommerce (Agent Friction)
           </button>
-          <button type="button" class="preset-chip" data-preset="ready">
-            🟢 Fiche Optimisée (Agent Ready)
+          <button type="button" class="preset-chip" data-preset="ready" title="Simulation déterministe optimisée Agent Ready">
+            🟢 [Démo Simulation] Fiche Optimisée (Agent Ready)
           </button>
         </div>
 
@@ -880,8 +890,8 @@
           <div class="footer-col">
             <h4>Ressources</h4>
             <ul>
-              <li><a href="docs/PRD.md">Spécifications PRD</a></li>
-              <li><a href="docs/MARKET_ANALYSIS.md">Données de Marché 2026</a></li>
+              <li><a href="/docs/PRD.md" target="_blank">Spécifications PRD</a></li>
+              <li><a href="/docs/MARKET_ANALYSIS.md" target="_blank">Données de Marché 2026</a></li>
               <li><a href="https://llmstxt.org/" target="_blank">Standard llms.txt</a></li>
               <li><a href="https://modelcontextprotocol.io/" target="_blank">Model Context Protocol</a></li>
             </ul>

@@ -32,7 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // 8. Setup FAQ Accordion
   initFaqAccordion();
 
-  // 9. URL Deep Link (?url=...)
+  // 9. Setup Mobile Navigation Toggle
+  initMobileNav();
+
+  // 10. URL Deep Link (?url=...)
   const urlParams = new URLSearchParams(window.location.search);
   const sharedUrl = urlParams.get('url');
 
@@ -582,6 +585,47 @@ function initGeminiModal() {
         feedback.textContent = 'Clé locale effacée.';
       }
       checkStatus();
+    });
+  }
+}
+
+/* --------------------------------------------------------------------------
+   MOBILE NAVIGATION TOGGLE
+   -------------------------------------------------------------------------- */
+function initMobileNav() {
+  const toggleBtn = document.getElementById('btn-nav-toggle');
+  const navMenu = document.getElementById('main-nav-menu');
+  const geminiModal = document.getElementById('gemini-modal');
+  const mobileGeminiBtn = document.getElementById('btn-open-gemini-modal-mobile');
+
+  if (toggleBtn && navMenu) {
+    toggleBtn.addEventListener('click', () => {
+      const isOpen = navMenu.classList.toggle('mobile-open');
+      toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      const icon = toggleBtn.querySelector('i');
+      if (icon) icon.className = isOpen ? 'fas fa-times' : 'fas fa-bars';
+    });
+
+    navMenu.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu.classList.remove('mobile-open');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        const icon = toggleBtn.querySelector('i');
+        if (icon) icon.className = 'fas fa-bars';
+      });
+    });
+  }
+
+  if (mobileGeminiBtn && geminiModal) {
+    mobileGeminiBtn.addEventListener('click', () => {
+      geminiModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      if (navMenu) navMenu.classList.remove('mobile-open');
+      if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        const icon = toggleBtn.querySelector('i');
+        if (icon) icon.className = 'fas fa-bars';
+      }
     });
   }
 }

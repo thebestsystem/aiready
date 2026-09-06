@@ -154,29 +154,46 @@ export class ScannerSimulator {
       });
     }
 
-    // Language Toggle (Task 2)
+    // Language Toggle
     const langBtnEn = document.getElementById('lang-btn-en');
     const langBtnFr = document.getElementById('lang-btn-fr');
     const heroTitle = document.getElementById('hero-main-title');
     const heroLead = document.getElementById('hero-main-lead');
+    const btnRunScan = document.getElementById('btn-run-scan');
+    const scannerSubtext = document.getElementById('scanner-subtext-label');
+    const navCtaFix = document.getElementById('nav-cta-fix');
 
     if (langBtnEn && langBtnFr && heroTitle && heroLead) {
       langBtnEn.addEventListener('click', () => {
+        document.documentElement.lang = 'en';
+        langBtnEn.classList.add('active');
         langBtnEn.style.borderColor = 'var(--border-medium)';
         langBtnEn.style.color = '#fff';
+        langBtnFr.classList.remove('active');
         langBtnFr.style.borderColor = 'var(--border-subtle)';
         langBtnFr.style.color = 'var(--text-muted)';
         heroTitle.innerHTML = `Your products are invisible to AI buyers. <br><span class="gradient-text">Fix them.</span>`;
         heroLead.textContent = `Get an instant, deterministic audit of how ChatGPT, Gemini and Claude see your store — then deploy clean JSON-LD and an llms.txt in one click. No AI judging your score. No guesswork.`;
+        if (this.input) this.input.placeholder = "Enter your product or store URL (e.g. my-store.com/products/jacket)";
+        if (btnRunScan) btnRunScan.innerHTML = `<i class="fas fa-bolt"></i> Fix my AI visibility`;
+        if (scannerSubtext) scannerSubtext.textContent = '⚡ Free scan · No signup · 2 seconds · 100% Deterministic';
+        if (navCtaFix) navCtaFix.innerHTML = `<i class="fas fa-wrench"></i> Fix AI Visibility`;
       });
 
       langBtnFr.addEventListener('click', () => {
+        document.documentElement.lang = 'fr';
+        langBtnFr.classList.add('active');
         langBtnFr.style.borderColor = 'var(--border-medium)';
         langBtnFr.style.color = '#fff';
+        langBtnEn.classList.remove('active');
         langBtnEn.style.borderColor = 'var(--border-subtle)';
         langBtnEn.style.color = 'var(--text-muted)';
         heroTitle.innerHTML = `Vos produits sont invisibles pour les acheteurs IA. <br><span class="gradient-text">AgentReady les répare.</span>`;
-        heroLead.textContent = `Audit 100% fiable de la façon dont ChatGPT, Gemini et Claude voient votre boutique — correction déployable en un clic. Sans IA juge, sans spéculation.`;
+        heroLead.textContent = `Audit 100% déterministe de la façon dont ChatGPT, Gemini et Claude voient votre boutique — correction déployable en un clic. Sans IA juge, sans spéculation.`;
+        if (this.input) this.input.placeholder = "Entrez l'URL de votre produit ou boutique (ex: ma-boutique.fr/products/veste)";
+        if (btnRunScan) btnRunScan.innerHTML = `<i class="fas fa-bolt"></i> Scanner ma boutique`;
+        if (scannerSubtext) scannerSubtext.textContent = '⚡ Scan gratuit · Sans inscription · Résultat en 2 secondes · 100% Déterministe';
+        if (navCtaFix) navCtaFix.innerHTML = `<i class="fas fa-wrench"></i> Corriger ma visibilité`;
       });
     }
 
@@ -223,6 +240,21 @@ export class ScannerSimulator {
         this.input.classList.add('animate-shake');
         setTimeout(() => this.input.classList.remove('animate-shake'), 600);
       }
+      return;
+    }
+
+    // Si l'utilisateur saisit explicitement l'une des 3 URLs des presets de démonstration
+    const lower = customUrl.toLowerCase().trim();
+    if (lower.includes('mystore-vintage.com')) {
+      this.runScanWithPreset('blind');
+      return;
+    }
+    if (lower.includes('urban-streetwear.fr')) {
+      this.runScanWithPreset('friction');
+      return;
+    }
+    if (lower.includes('sonus-audio.store')) {
+      this.runScanWithPreset('ready');
       return;
     }
 
@@ -347,7 +379,7 @@ export class ScannerSimulator {
     // Animate first 3 steps while waiting for network
     setTimeout(() => {
       this.progressStatus.textContent = "1/5 Directives robots.txt & détection WAF...";
-      this.progressBar.style.width = "25%";
+      this.progressBar.style.width = "20%";
       if (this.stepsList[0]) this.stepsList[0].classList.add('active');
     }, 100);
 
@@ -357,7 +389,7 @@ export class ScannerSimulator {
         this.stepsList[0].querySelector('i').className = 'fas fa-check-circle';
       }
       this.progressStatus.textContent = "2/5 Extraction DOM & parsing Schema.org JSON-LD...";
-      this.progressBar.style.width = "50%";
+      this.progressBar.style.width = "40%";
       if (this.stepsList[1]) this.stepsList[1].classList.add('active');
     }, 450);
 
@@ -366,10 +398,20 @@ export class ScannerSimulator {
         this.stepsList[1].classList.replace('active', 'done');
         this.stepsList[1].querySelector('i').className = 'fas fa-check-circle';
       }
-      this.progressStatus.textContent = "3/5 Pureté sémantique & AI Buyer Simulation...";
-      this.progressBar.style.width = "75%";
+      this.progressStatus.textContent = "3/5 Pureté sémantique & ratio signal/bruit...";
+      this.progressBar.style.width = "60%";
       if (this.stepsList[2]) this.stepsList[2].classList.add('active');
-    }, 900);
+    }, 850);
+
+    setTimeout(() => {
+      if (this.stepsList[2]) {
+        this.stepsList[2].classList.replace('active', 'done');
+        this.stepsList[2].querySelector('i').className = 'fas fa-check-circle';
+      }
+      this.progressStatus.textContent = "4/5 Simulateur d'achat IA (intention & checkout)...";
+      this.progressBar.style.width = "80%";
+      if (this.stepsList[3]) this.stepsList[3].classList.add('active');
+    }, 1250);
   }
 
   completeProgressUI(callback) {
