@@ -2141,6 +2141,14 @@ def serve_root():
         return FileResponse(index_file, media_type="text/html")
     raise HTTPException(status_code=404, detail="index.html introuvable")
 
+
+@app.get("/agences")
+def serve_agences():
+    agencies_file = os.path.join(_base_dir, "agencies.html")
+    if os.path.exists(agencies_file):
+        return FileResponse(agencies_file, media_type="text/html")
+    raise HTTPException(status_code=404, detail="agencies.html introuvable")
+
 @app.get("/favicon.ico")
 def serve_favicon():
     svg_icon = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">

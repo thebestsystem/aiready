@@ -33,6 +33,11 @@
   <!-- Grid Background Deco -->
   <div class="bg-grid-pattern" aria-hidden="true"></div>
 
+  <!-- Cross banner (routage audience) -->
+  <div class="cross-banner">
+    Vous êtes une agence e-commerce ou SEO ? <a href="/agences">Découvrez l'offre white-label →</a>
+  </div>
+
   <!-- ======================================================================
        1. NAVIGATION BAR
        ====================================================================== -->
@@ -66,6 +71,10 @@
       </nav>
 
       <div class="nav-cta-group" style="display: flex; gap: 0.75rem; align-items: center;">
+        <div class="audience-switch" aria-label="Changer d'audience">
+          <a href="/" class="active">Marques</a>
+          <a href="/agences">Agences</a>
+        </div>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-open-gemini-modal" style="display: flex; align-items: center; gap: 0.5rem;" title="Configurer Google Gemini">
           <i class="fas fa-brain" style="color: var(--cyan-400);"></i>
           <span id="gemini-nav-status">Gemini IA</span>
@@ -831,7 +840,7 @@
             <li class="included"><i class="fas fa-check"></i> Support prioritaire & canal Slack partagé</li>
           </ul>
 
-          <button class="btn btn-secondary" id="btn-agency-cta" style="width: 100%;">Contacter l'équipe Agence</button>
+          <a href="/agences" class="btn btn-secondary" style="width: 100%;">Contacter l'équipe Agence</a>
         </div>
 
       </div>
@@ -931,7 +940,7 @@
             <h4>Tarifs & Agence</h4>
             <ul>
               <li><a href="#pricing">Plan Pro Merchant</a></li>
-              <li><a href="#pricing">Plan Agence White-Label</a></li>
+              <li><a href="/agences">Plan Agence White-Label</a></li>
               <li><a href="#" class="trigger-pdf-modal">Exemple de Rapport PDF</a></li>
             </ul>
           </div>

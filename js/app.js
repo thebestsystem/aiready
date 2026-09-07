@@ -403,7 +403,6 @@ function initPdfModal() {
    -------------------------------------------------------------------------- */
 function initMonetizationCtas() {
   const proBtn = document.getElementById('btn-pro-cta');
-  const agencyBtn = document.getElementById('btn-agency-cta');
 
   const openOrMail = (url, fallbackSubject) => {
     if (url) {
@@ -420,12 +419,7 @@ function initMonetizationCtas() {
     });
   }
 
-  // Agence : booking (Calendly) sinon email.
-  if (agencyBtn) {
-    agencyBtn.addEventListener('click', () => {
-      openOrMail(BOOKING_URL, 'Démo Agence White-Label - AgentReady');
-    });
-  }
+  // Le CTA Agence pointe désormais vers /agences (lien direct dans index.html).
 }
 
 /* --------------------------------------------------------------------------
