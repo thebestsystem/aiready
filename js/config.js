@@ -10,9 +10,8 @@
 export const BOOKING_URL = '';
 
 // Lien de paiement Stripe (Payment Link) pour l'offre Pro self-serve.
-// Laissez vide tant que le modèle reste 100% concierge (high-ticket).
-// Si vide, le CTA "Commencer l'essai" retombe sur BOOKING_URL puis sur l'email.
-export const CHECKOUT_URL = '';
+// ⚠️ Lien de TEST (sk_test) — remplacez par le lien live après activation du compte.
+export const CHECKOUT_URL = 'https://buy.stripe.com/test_6oUeVegoR2qu1448BJco000';
 
 // Email de contact de secours (utilisé uniquement quand les URLs sont vides).
 export const CONTACT_EMAIL = 'contact@agentready.io';
