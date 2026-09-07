@@ -5,6 +5,7 @@
 import { ScannerSimulator } from './scanner-simulator.js?v=2.7';
 import { SplitScreenViewer } from './split-screen.js?v=2.7';
 import { SIMULATOR_QUESTIONS, CODE_SNIPPETS } from './mock-data.js?v=2.7';
+import { BOOKING_URL, CHECKOUT_URL, CONTACT_EMAIL } from './config.js?v=2.7';
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Scanner & Split Viewer
@@ -25,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 6. Setup PDF Report Modal & Real Download
   initPdfModal();
+
+  // 6.5 Setup monetization CTAs (Calendly / Stripe checkout)
+  initMonetizationCtas();
 
   // 7. Setup Share Audit Link
   initShareAudit();
@@ -390,6 +394,36 @@ function initPdfModal() {
           submitBtn.innerHTML = originalBtnHtml;
         }
       }
+    });
+  }
+}
+
+/* --------------------------------------------------------------------------
+   MONETIZATION CTAs (Calendly / Stripe)
+   -------------------------------------------------------------------------- */
+function initMonetizationCtas() {
+  const proBtn = document.getElementById('btn-pro-cta');
+  const agencyBtn = document.getElementById('btn-agency-cta');
+
+  const openOrMail = (url, fallbackSubject) => {
+    if (url) {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      window.location.href = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(fallbackSubject)}`;
+    }
+  };
+
+  // Pro Merchant : Stripe checkout si configuré, sinon booking, sinon email.
+  if (proBtn) {
+    proBtn.addEventListener('click', () => {
+      openOrMail(CHECKOUT_URL || BOOKING_URL, 'Essai Pro Merchant - AgentReady');
+    });
+  }
+
+  // Agence : booking (Calendly) sinon email.
+  if (agencyBtn) {
+    agencyBtn.addEventListener('click', () => {
+      openOrMail(BOOKING_URL, 'Démo Agence White-Label - AgentReady');
     });
   }
 }
