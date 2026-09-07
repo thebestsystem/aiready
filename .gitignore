@@ -28,3 +28,10 @@ test_report.pdf
 *.sublime-workspace
 .DS_Store
 Thumbs.db
+
+# AI Agents Think Tank & Local Supervision (Inspect project but not part of production code)
+.agents/
+experts/
+deliberations/
+AGENTS.md
+

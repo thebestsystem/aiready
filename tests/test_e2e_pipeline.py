@@ -1112,6 +1112,62 @@ Disallow: /api/v1/trebuchet
         self.assertIn("text/markdown", res_prd.headers.get("content-type"))
         self.assertIn("PRD", res_prd.text)
 
+    def test_36_csr_and_waf_non_blocking_audit(self):
+        """Architecture : détection non-bloquante CSR/SPA, qualification auditType et encart PDF."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        server._scan_limiter.reset()
+
+        csr_html = """<!DOCTYPE html>
+        <html>
+          <head><title>Boutique SPA React</title></head>
+          <body>
+            <noscript>You need to enable JavaScript to run this app.</noscript>
+            <div id="root"></div>
+            <script type="module" src="/src/main.jsx"></script>
+          </body>
+        </html>"""
+
+        mock_resp = MagicMock()
+        mock_resp.text = csr_html
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/html"}
+
+        fake_robots = {"found": True, "global_disallowed": False, "disallowed_bots": [], "raw": "User-agent: *\nAllow: /"}
+        fake_llms = {"found": True, "path": "/.well-known/llms.txt", "content": "# LLMs.txt\nAPI: https://api.myspa.fr"}
+
+        with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp), \
+             patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=fake_robots), \
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms):
+
+            res = self.client.post("/api/scan", json={"url": "https://boutique-spa.fr/products/chemise"})
+            self.assertEqual(res.status_code, 200)
+            data = res.json()
+
+            # 1. Qualification non-bloquante
+            self.assertTrue(data["isWafBlocked"])
+            self.assertEqual(data.get("auditType"), "CSR_SPA_UNRENDERED")
+            self.assertIsNotNone(data.get("wafDetails"))
+            self.assertEqual(data["wafDetails"].get("type"), "CSR")
+            self.assertIn("Client-Side", data["wafDetails"].get("blocker", ""))
+
+            # 2. Conservation de l'intégrité de l'audit des fichiers statiques (robots & llms)
+            self.assertIn("crawl", data["pillars"])
+            self.assertGreater(data["pillars"]["crawl"]["score"], 0)
+            self.assertIn("proto", data["pillars"])
+
+            # 3. Warning prioritaire dans brokenItems
+            broken_titles = [item["title"] for item in data["brokenItems"]]
+            self.assertTrue(any("Client-Side Rendering" in t for t in broken_titles))
+
+            # 4. Génération PDF avec encart d'avertissement architecture
+            res_pdf = self.client.post("/api/report/pdf", json={
+                "email": "dev@boutique-spa.fr",
+                "auditData": data
+            })
+            self.assertEqual(res_pdf.status_code, 200)
+            self.assertEqual(res_pdf.headers.get("content-type"), "application/pdf")
+            self.assertTrue(res_pdf.content.startswith(b"%PDF-"))
+
 
 if __name__ == "__main__":
     unittest.main()

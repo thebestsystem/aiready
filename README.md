@@ -53,6 +53,47 @@ Toute la stratégie, l'analyse de marché et les spécifications techniques du p
 
 ---
 
+## 🚀 Démarrage Rapide Développeur (Onboarding)
+
+Le projet est conçu pour être lancé instantanément, quel que soit l'environnement de développement :
+
+### Option A : Windows (Lanceur 1-clic)
+Double-cliquez sur `start.bat` ou lancez-le en invite de commandes :
+```cmd
+start.bat
+```
+> **Ce que fait le script :**
+> - Détecte automatiquement l'environnement virtuel (`.venv`), Python système ou installation locale.
+> - Détecte et configure automatiquement Node.js (`C:\node-v24-LTS` ou PATH) pour les outils frontend.
+> - Initialise automatiquement le `.env` depuis `.env.example` s'il n'existe pas.
+> - Installe les dépendances requises et démarre le serveur unifié sur `http://localhost:8000`.
+
+### Option B : Mac / Linux
+Rendez le script exécutable et lancez-le :
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### Option C : Docker (Zéro installation requise)
+Si vous disposez de Docker :
+```bash
+docker compose up
+```
+L'application démarre sur `http://localhost:8000` avec rechargement à chaud et persistance des données.
+
+### Option D : Manuel (Environnement Virtuel Standard)
+```bash
+python -m venv .venv
+# Sur Windows :
+.venv\Scripts\activate
+# Sur Mac/Linux :
+source .venv/bin/activate
+
+pip install -r requirements.txt
+uvicorn server:app --host 127.0.0.1 --port 8000 --reload
+```
+
 ---
 
 ## ☁️ Déploiement Cloud (Railway / Render)

@@ -241,7 +241,8 @@ export const AUDIT_PRESETS = {
       description: "Sweat à capuche molletonné coupe oversize 450 GSM en coton biologique peigné avec finitions bord-côte renforcées.",
       has_stock: true,
       has_shipping: false,
-      has_return: false
+      has_return: false,
+      image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80"
     },
     pillars: {
       crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },

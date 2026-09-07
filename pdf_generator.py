@@ -154,6 +154,36 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
     story.append(t_summary)
     story.append(Spacer(1, 15))
 
+    # Encart Avertissement Architecture CSR / Pare-feu WAF si applicable
+    if audit_data.get("isWafBlocked") or audit_data.get("wafDetails"):
+        waf_d = audit_data.get("wafDetails") or {}
+        is_csr = audit_data.get("auditType") == "CSR_SPA_UNRENDERED" or waf_d.get("type") == "CSR"
+        blocker = _escape_xml(waf_d.get("blocker") or ("Rendu Client-Side (CSR / SPA)" if is_csr else "Pare-feu WAF"))
+        advice = _escape_xml(waf_d.get("advice") or ("Activez le Server-Side Rendering (SSR) pour exposer vos fiches produits aux robots IA." if is_csr else "Autorisez les agents IA dans vos règles pare-feu."))
+        impact = _escape_xml(waf_d.get("impact") or "Les crawlers IA consomment le code HTML source sans exécuter le JavaScript lourd.")
+        msg = _escape_xml(waf_d.get("message") or "Contenu HTML non pré-rendu ou filtré par pare-feu.")
+
+        waf_box_data = [
+            [
+                Paragraph(
+                    f"<b>⚠️ AVERTISSEMENT ARCHITECTURE : {blocker.upper()}</b><br/>"
+                    f"<b>Diagnostic :</b> {msg}<br/>"
+                    f"<b>Impact IA :</b> {impact}<br/>"
+                    f"<b>Recommandation technique :</b> {advice}",
+                    normal_style
+                )
+            ]
+        ]
+        t_waf = Table(waf_box_data, colWidths=[540])
+        t_waf.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#fef2f2')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#ef4444')),
+            ('PADDING', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        story.append(t_waf)
+        story.append(Spacer(1, 12))
+
     # 3. Tableau des 5 Piliers
     story.append(Paragraph("Détail des 5 Piliers d'Évaluation Agentique", section_style))
     story.append(Spacer(1, 6))

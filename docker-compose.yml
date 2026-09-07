@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  agentready:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentready-app
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - .env
+    volumes:
+      # Montage en lecture/ecriture pour le developpement et la persistance des leads
+      - .:/app
+    restart: unless-stopped

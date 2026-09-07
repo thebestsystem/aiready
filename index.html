@@ -179,24 +179,28 @@
           </div>
         </div>
 
-        <!-- WAF / CSR Fallback Banner (Task 4) -->
-        <div id="waf-blocked-card" class="waf-blocked-card" style="display: none;">
+        <!-- WAF / CSR Warning & Explanatory Banner -->
+        <div id="waf-blocked-card" class="waf-blocked-card" style="display: none; margin-bottom: 1.5rem;">
           <div style="font-size: 1.1rem; font-weight: 800; color: #f87171; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fas fa-shield-alt"></i> [⚠️ Store protégé] Nous n'avons pas pu lire le DOM complet.
+            <i class="fas fa-exclamation-triangle" id="waf-banner-icon"></i> <span id="waf-banner-title">Alerte Architecture IA : Rendu CSR ou Pare-feu détecté</span>
           </div>
           <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem; line-height: 1.5;">
-            Bloqué par : <strong id="waf-blocker-name" style="color: #fff;">Cloudflare WAF / Anti-bot</strong> ou rendu JavaScript non pré-rendu (CSR).
+            Origine : <strong id="waf-blocker-name" style="color: #fff;">Cloudflare WAF / Anti-bot</strong>.
+            <span id="waf-banner-message">Le contenu HTML initial ne contient pas de données produit textuelles directes.</span>
           </p>
-          <div style="font-size: 0.85rem; color: var(--cyan-400); margin-bottom: 1.25rem;">
-            <strong>Conseil :</strong> autorisez <code>AgentReadyBot</code> dans votre pare-feu / servez un HTML SSR, puis relancez.
+          <div id="waf-banner-impact" style="font-size: 0.85rem; color: #fca5a5; margin-bottom: 0.5rem; line-height: 1.4;">
+            <strong>Impact IA :</strong> Les robots d'achat IA (GPTBot, ClaudeBot, Perplexity) consomment le code brut sans moteur JavaScript lourd : vos fiches risquent d'être ignorées.
           </div>
-          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <div id="waf-banner-advice" style="font-size: 0.85rem; color: var(--cyan-400); margin-bottom: 1.25rem; line-height: 1.4;">
+            <strong>Conseil :</strong> Activez le Server-Side Rendering (SSR) ou autorisez <code>AgentReadyBot</code> dans votre pare-feu.
+          </div>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-retry-waf-scan">
               <i class="fas fa-redo"></i> Relancer le scan
             </button>
-            <a href="mailto:contact@agentready.io?subject=Audit%20Store%20Prot%C3%A9g%C3%A9%20AgentReady" class="btn btn-primary btn-sm">
-              <i class="fas fa-envelope"></i> Me contacter (email)
-            </a>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+              <i class="fas fa-arrow-down"></i> Diagnostic détaillé des fichiers d'accès (robots.txt, llms.txt) disponible ci-dessous
+            </span>
           </div>
         </div>
 
@@ -392,10 +396,7 @@
         <div class="viewer-side viewer-human">
           <div class="viewer-content-human">
             <div class="human-store-mockup">
-              <picture>
-                <source srcset="assets/product_human_view.webp" type="image/webp">
-                <img src="assets/product_human_view.jpg" width="1200" height="896" alt="Fiche produit Human View" class="human-product-img" loading="lazy" decoding="async">
-              </picture>
+              <img id="human-product-img" src="assets/product_human_view.webp" width="1200" height="896" alt="Photo de l'article analysé - Vue Humaine" class="human-product-img" loading="lazy" decoding="async" referrerpolicy="no-referrer">
               <div class="human-product-details">
                 <div class="human-brand" id="human-product-brand">Sonus Audio Systems</div>
                 <h3 class="human-title" id="human-product-title">Sonus NC-700 Matte Black</h3>

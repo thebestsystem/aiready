@@ -14,6 +14,47 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
+function createProductPlaceholderSvg(title, brand) {
+  const cleanTitle = (title || 'Article analysé').replace(/[<>&"]/g, '');
+  const cleanBrand = (brand || 'Boutique E-commerce').replace(/[<>&"]/g, '');
+  const truncatedTitle = cleanTitle.length > 38 ? cleanTitle.slice(0, 36) + '...' : cleanTitle;
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+    <defs>
+      <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#0f172a" />
+        <stop offset="50%" stop-color="#1e293b" />
+        <stop offset="100%" stop-color="#090d16" />
+      </linearGradient>
+      <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#6366f1" />
+        <stop offset="100%" stop-color="#06b6d4" />
+      </linearGradient>
+      <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+        <path d="M 32 0 L 0 0 0 32" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <rect width="800" height="600" fill="url(#cardBg)" />
+    <rect width="800" height="600" fill="url(#grid)" />
+    
+    <circle cx="400" cy="250" r="120" fill="rgba(99, 102, 241, 0.08)" />
+    
+    <g transform="translate(360, 190)">
+      <rect x="0" y="20" width="80" height="80" rx="18" fill="rgba(255,255,255,0.05)" stroke="rgba(99,102,241,0.4)" stroke-width="2" />
+      <path d="M26 36 L54 36 L50 68 L30 68 Z" fill="none" stroke="url(#accentGrad)" stroke-width="2.5" stroke-linejoin="round" />
+      <path d="M34 36 C34 26, 46 26, 46 36" fill="none" stroke="url(#accentGrad)" stroke-width="2.5" stroke-linecap="round" />
+    </g>
+    
+    <rect x="250" y="325" width="300" height="28" rx="14" fill="rgba(99,102,241,0.15)" stroke="rgba(99,102,241,0.3)" stroke-width="1" />
+    <text x="400" y="344" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="600" letter-spacing="1.5" fill="#a5b4fc">${cleanBrand.toUpperCase()}</text>
+    
+    <text x="400" y="405" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="700" fill="#f8fafc">${truncatedTitle}</text>
+    
+    <text x="400" y="440" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#64748b">Fiche article analysée • Vue Révélation Visuelle</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
 
 export class ScannerSimulator {
   constructor() {
@@ -466,19 +507,42 @@ export class ScannerSimulator {
       };
     }
 
+    const wafBannerTitle = document.getElementById('waf-banner-title');
+    const wafBannerMessage = document.getElementById('waf-banner-message');
+    const wafBannerImpact = document.getElementById('waf-banner-impact');
+    const wafBannerAdvice = document.getElementById('waf-banner-advice');
+    const wafBannerIcon = document.getElementById('waf-banner-icon');
+
     if (data.isWafBlocked) {
-      if (this.resultsCard) this.resultsCard.classList.remove('active');
       if (wafCard) {
         wafCard.style.display = 'block';
+        const isCsr = data.auditType === 'CSR_SPA_UNRENDERED' || data.wafDetails?.type === 'CSR';
         if (wafBlockerName && data.wafDetails?.blocker) {
           wafBlockerName.textContent = data.wafDetails.blocker;
         }
-        wafCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (wafBannerTitle) {
+          wafBannerTitle.textContent = isCsr 
+            ? "Alerte Architecture IA : Rendu 100% Client-Side (CSR / SPA)" 
+            : "Alerte Pare-feu IA : Challenge Anti-bot Actif";
+        }
+        if (wafBannerIcon) {
+          wafBannerIcon.className = isCsr ? "fas fa-laptop-code" : "fas fa-shield-alt";
+        }
+        if (wafBannerMessage && data.wafDetails?.message) {
+          wafBannerMessage.textContent = data.wafDetails.message;
+        }
+        if (wafBannerImpact && data.wafDetails?.impact) {
+          wafBannerImpact.innerHTML = `<strong>Impact IA :</strong> ${data.wafDetails.impact}`;
+        }
+        if (wafBannerAdvice && data.wafDetails?.advice) {
+          wafBannerAdvice.innerHTML = `<strong>Recommandation :</strong> ${data.wafDetails.advice}`;
+        }
       }
-      return;
     } else {
       if (wafCard) wafCard.style.display = 'none';
     }
+
+    if (this.resultsCard) this.resultsCard.classList.add('active');
 
     try {
       if (this.domainTitle) this.domainTitle.textContent = data.name || 'Boutique E-commerce';
@@ -499,17 +563,30 @@ export class ScannerSimulator {
       const sim = p.simulator || { score: 0, status: '--' };
       const proto = p.proto || p.protocols || { score: 0, status: '--' };
 
+      const prodName = data.productData?.name || data.name || 'Produit E-commerce';
+      const domainClean = (data.domain || '').replace(/^https?:\/\//, '').split('/')[0];
+      const brandName = data.productData?.brand || domainClean || 'Boutique E-commerce';
+      const prodImgUrl = data.image || data.productData?.image;
+
       // Affichage instantané de la photo de l'article scanné sans stockage serveur
       const thumbWrapper = document.getElementById('audit-product-img-wrapper');
       const thumbImg = document.getElementById('audit-product-thumb');
-      const prodImgUrl = data.image || data.productData?.image;
 
       if (thumbWrapper && thumbImg) {
         if (prodImgUrl) {
-          thumbImg.src = prodImgUrl;
+          thumbImg.referrerPolicy = 'no-referrer';
           thumbImg.onerror = () => {
-            thumbWrapper.style.display = 'none';
+            // Essai de repli via proxy serveur si le direct est bloqué par anti-hotlink CDN
+            thumbImg.onerror = () => {
+              thumbWrapper.style.display = 'none';
+            };
+            if (!prodImgUrl.startsWith('assets/') && !prodImgUrl.startsWith('data:')) {
+              thumbImg.src = `/api/proxy-image?url=${encodeURIComponent(prodImgUrl)}`;
+            } else {
+              thumbWrapper.style.display = 'none';
+            }
           };
+          thumbImg.src = prodImgUrl;
           thumbWrapper.style.display = 'block';
         } else {
           thumbWrapper.style.display = 'none';
@@ -517,28 +594,49 @@ export class ScannerSimulator {
       }
 
       // Synchronisation complète de la VUE HUMAINE (Design & Branding)
-      const humanProductImg = document.querySelector('.human-product-img');
+      const humanProductImg = document.getElementById('human-product-img') || document.querySelector('.human-product-img');
       const humanTitle = document.getElementById('human-product-title') || document.querySelector('.human-title');
       const humanBrand = document.getElementById('human-product-brand');
       const humanPrice = document.getElementById('human-product-price');
       const humanDesc = document.getElementById('human-product-desc');
 
       if (humanProductImg) {
+        humanProductImg.referrerPolicy = 'no-referrer';
+        humanProductImg.alt = `Photo de l'article : ${prodName}`;
+
+        const setFallbackVisual = () => {
+          humanProductImg.onerror = null;
+          // Si le scan concerne expressément le casque de démo Sonus NC-700
+          const isSonusDemo = prodName.toLowerCase().includes('sonus') || prodName.toLowerCase().includes('nc-700');
+          if (isSonusDemo) {
+            humanProductImg.src = 'assets/product_human_view.webp';
+          } else {
+            humanProductImg.src = createProductPlaceholderSvg(prodName, brandName);
+          }
+        };
+
         if (prodImgUrl) {
-          humanProductImg.src = prodImgUrl;
-          humanProductImg.onerror = () => {
-            humanProductImg.src = 'assets/product_human_view.jpg';
-          };
+          if (prodImgUrl.startsWith('assets/') || prodImgUrl.startsWith('data:')) {
+            humanProductImg.onerror = setFallbackVisual;
+            humanProductImg.src = prodImgUrl;
+          } else {
+            // 1. Essai direct avec no-referrer (chargement immédiat)
+            humanProductImg.onerror = () => {
+              // 2. Si le direct est rejeté (ex: 403 hotlink protection CDN), passage par le proxy serveur sécurisé
+              humanProductImg.onerror = () => {
+                // 3. Si même le proxy échoue, bascule sur le visuel SVG haute fidélité de l'article analysé
+                setFallbackVisual();
+              };
+              humanProductImg.src = `/api/proxy-image?url=${encodeURIComponent(prodImgUrl)}`;
+            };
+            humanProductImg.src = prodImgUrl;
+          }
         } else {
-          humanProductImg.src = 'assets/product_human_view.jpg';
+          setFallbackVisual();
         }
       }
 
-      const prodName = data.productData?.name || data.name || 'Produit E-commerce';
       if (humanTitle) humanTitle.textContent = prodName;
-
-      const domainClean = (data.domain || '').replace(/^https?:\/\//, '').split('/')[0];
-      const brandName = data.productData?.brand || domainClean || 'Boutique E-commerce';
       if (humanBrand) humanBrand.textContent = brandName;
 
       if (humanPrice) {

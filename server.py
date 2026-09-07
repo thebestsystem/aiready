@@ -136,7 +136,7 @@ def _is_trusted_proxy(host: str) -> bool:
         return True
 
     # 2. Proxys de confiance configurés (par défaut loopback et testclient)
-    trusted_raw = os.getenv("TRUSTED_PROXIES", "127.0.0.1,::1,testclient,localhost")
+    trusted_raw = (os.getenv("TRUSTED_PROXIES") or "").strip() or "127.0.0.1,::1,testclient,localhost"
     trusted_set = {h.strip().lower() for h in trusted_raw.split(",") if h.strip()}
     return host.lower() in trusted_set
 
@@ -337,6 +337,7 @@ class AuditResult(BaseModel):
     fixedJsonLd: str = ""
     isWafBlocked: bool = False
     wafDetails: Optional[Dict[str, str]] = None
+    auditType: str = "STANDARD"
     geminiLive: bool = False
     isProductPage: bool = True
 
@@ -654,25 +655,78 @@ async def check_llms_txt(client: httpx.AsyncClient, domain: str, scheme: str = "
             continue
     return {"found": False, "path": None, "content": None}
 
+def clean_json_ld_text(text: str) -> str:
+    if not text:
+        return ""
+    t = text.strip()
+    # Nettoyer CDATA et commentaires HTML fréquents dans Shopify / PrestaShop / WooCommerce
+    t = re.sub(r'^\s*//\s*<!\[CDATA\[', '', t, flags=re.IGNORECASE)
+    t = re.sub(r'^\s*<!\[CDATA\[', '', t, flags=re.IGNORECASE)
+    t = re.sub(r'//\s*\]\]>\s*$', '', t, flags=re.IGNORECASE)
+    t = re.sub(r'\]\]>\s*$', '', t, flags=re.IGNORECASE)
+    t = re.sub(r'^\s*<!--', '', t)
+    t = re.sub(r'-->\s*$', '', t)
+    return t.strip()
+
 def extract_json_ld(soup: BeautifulSoup) -> List[Dict[str, Any]]:
     json_ld_list = []
-    scripts = soup.find_all("script", type="application/ld+json")
+    scripts = soup.find_all("script", type=lambda t: t and "ld+json" in t.lower())
     for s in scripts:
-        try:
-            if s.string:
-                data = json.loads(s.string.strip())
-                if isinstance(data, list):
-                    json_ld_list.extend(data)
-                elif isinstance(data, dict):
-                    if "@graph" in data and isinstance(data["@graph"], list):
-                        json_ld_list.extend(data["@graph"])
-                    else:
-                        json_ld_list.append(data)
-        except Exception:
+        raw = clean_json_ld_text(s.get_text())
+        if not raw:
             continue
+        try:
+            data = json.loads(raw)
+            if isinstance(data, list):
+                json_ld_list.extend(data)
+            elif isinstance(data, dict):
+                if "@graph" in data and isinstance(data["@graph"], list):
+                    json_ld_list.extend(data["@graph"])
+                else:
+                    json_ld_list.append(data)
+        except Exception:
+            # En cas de contenu hybride ou scripts imbriqués, extraction regex
+            m = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', raw)
+            if m:
+                try:
+                    data = json.loads(m.group(1))
+                    if isinstance(data, list):
+                        json_ld_list.extend(data)
+                    elif isinstance(data, dict):
+                        if "@graph" in data and isinstance(data["@graph"], list):
+                            json_ld_list.extend(data["@graph"])
+                        else:
+                            json_ld_list.append(data)
+                except Exception:
+                    pass
     return json_ld_list
 
+def _parse_image_from_raw(raw_img: Any, id_map: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    if not raw_img:
+        return None
+    if isinstance(raw_img, str) and raw_img.strip():
+        return raw_img.strip()
+    if isinstance(raw_img, list):
+        for item in raw_img:
+            parsed = _parse_image_from_raw(item, id_map)
+            if parsed:
+                return parsed
+    if isinstance(raw_img, dict):
+        # URL directe ou contentUrl (standard Schema.org)
+        for key in ["url", "contentUrl", "thumbnail", "src"]:
+            val = raw_img.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        # Référence par @id (WooCommerce Yoast / RankMath)
+        ref_id = raw_img.get("@id")
+        if ref_id and id_map and ref_id in id_map:
+            target = id_map[ref_id]
+            return _parse_image_from_raw(target, None)
+    return None
+
 def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+    id_map = {item["@id"]: item for item in json_ld_list if isinstance(item, dict) and "@id" in item}
+
     product_obj = None
     for item in json_ld_list:
         item_type = str(item.get("@type", ""))
@@ -707,18 +761,33 @@ def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     prod_sku = product_obj.get("sku") or product_obj.get("gtin13") or product_obj.get("gtin")
     prod_desc = product_obj.get("description", "")
     
-    # Extract image directly without downloading or saving
-    prod_image = None
-    raw_img = product_obj.get("image")
-    if isinstance(raw_img, str):
-        prod_image = raw_img
-    elif isinstance(raw_img, list) and len(raw_img) > 0:
-        if isinstance(raw_img[0], str):
-            prod_image = raw_img[0]
-        elif isinstance(raw_img[0], dict) and "url" in raw_img[0]:
-            prod_image = raw_img[0]["url"]
-    elif isinstance(raw_img, dict) and "url" in raw_img:
-        prod_image = raw_img["url"]
+    # Extraction robuste de l'image de l'article (support string, contentUrl, @id reference, images, offers)
+    prod_image = _parse_image_from_raw(product_obj.get("image"), id_map)
+    if not prod_image:
+        prod_image = _parse_image_from_raw(product_obj.get("images"), id_map)
+    if not prod_image:
+        thumb = product_obj.get("thumbnailUrl")
+        if isinstance(thumb, str) and thumb.strip():
+            prod_image = thumb.strip()
+    if not prod_image:
+        # Recherche dans offers
+        raw_offers = product_obj.get("offers")
+        if isinstance(raw_offers, dict):
+            prod_image = _parse_image_from_raw(raw_offers.get("image"), id_map)
+        elif isinstance(raw_offers, list):
+            for off in raw_offers:
+                if isinstance(off, dict):
+                    prod_image = _parse_image_from_raw(off.get("image"), id_map)
+                    if prod_image:
+                        break
+    if not prod_image:
+        # Recherche d'un éventuel ImageObject dans le graphe
+        for item in json_ld_list:
+            if isinstance(item, dict) and "ImageObject" in str(item.get("@type", "")):
+                candidate = _parse_image_from_raw(item, None)
+                if candidate and not any(bad in candidate.lower() for bad in ["logo", "icon", "placeholder", "default"]):
+                    prod_image = candidate
+                    break
 
     if prod_sku:
         score += 10
@@ -1010,18 +1079,30 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
     if schema_image and not any(bad in schema_image.lower() for bad in ["logo", "icon", "placeholder", "default", "blank"]):
         return urljoin(base_url, schema_image.strip())
 
-    # 2. Balise OpenGraph ou Twitter
-    og_img = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "og:image"})
-    if og_img and og_img.get("content"):
-        content = og_img["content"].strip()
-        if content and not any(bad in content.lower() for bad in ["logo", "default", "placeholder", "favicon"]):
+    # 2. Balise OpenGraph, Twitter ou Link image_src / itemprop image
+    for og_tag in [
+        soup.find("meta", property="og:image:secure_url"),
+        soup.find("meta", property="og:image"),
+        soup.find("meta", attrs={"name": "og:image"}),
+        soup.find("meta", property="twitter:image"),
+        soup.find("meta", attrs={"name": "twitter:image"}),
+        soup.find("meta", attrs={"name": "twitter:image:src"}),
+        soup.find("link", rel=lambda r: r and "image_src" in str(r).lower()),
+        soup.find("meta", attrs={"itemprop": "image"}),
+    ]:
+        if not og_tag:
+            continue
+        content = (og_tag.get("content") or og_tag.get("href") or "").strip()
+        if content and not any(bad in content.lower() for bad in ["logo", "default", "placeholder", "favicon", "icon", "banner"]):
             return urljoin(base_url, content)
 
-    tw_img = soup.find("meta", attrs={"name": "twitter:image"}) or soup.find("meta", property="twitter:image")
-    if tw_img and tw_img.get("content"):
-        content = tw_img["content"].strip()
-        if content and not any(bad in content.lower() for bad in ["logo", "default", "placeholder"]):
-            return urljoin(base_url, content)
+    # 2b. Microdata HTML : balise img avec itemprop="image"
+    itemprop_img = soup.find("img", attrs={"itemprop": "image"})
+    if itemprop_img:
+        for attr in ["data-large_image", "data-zoom-image", "data-src", "data-original", "src"]:
+            v = itemprop_img.get(attr)
+            if v and not v.startswith("data:") and not any(bad in v.lower() for bad in ["blank", "spacer", "pixel", "placeholder"]):
+                return urljoin(base_url, v.strip())
 
     # 3. Algorithme de détection DOM pondéré (Score par mots-clés de titre/H1, ID et classes produit)
     page_title = soup.title.string.strip() if soup.title and soup.title.string else ""
@@ -1032,15 +1113,34 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
     candidates = []
 
     for img in soup.find_all("img"):
-        src = img.get("src") or img.get("data-src") or img.get("data-zoom-image") or img.get("data-original") or img.get("data-lazy")
-        if not src:
+        # Inspection de tous les attributs d'image réels (gestion lazy-loading moderne)
+        candidate_src = None
+        for attr in [
+            "data-large_image", "data-large-image", "data-zoom-image", "data-zoom-src",
+            "data-master", "data-high-res-src", "data-full-url", "data-src", "data-lazy-src",
+            "data-lazy", "data-original", "src"
+        ]:
+            val = img.get(attr)
+            if val and not val.startswith("data:") and not any(bad in val.lower() for bad in ["blank", "spacer", "pixel", "placeholder"]):
+                candidate_src = val.strip()
+                break
+
+        if not candidate_src:
+            srcset = img.get("srcset") or img.get("data-srcset")
+            if srcset:
+                parts = [p.strip().split()[0] for p in srcset.split(",") if p.strip()]
+                if parts and not parts[-1].startswith("data:"):
+                    candidate_src = parts[-1]
+
+        if not candidate_src or candidate_src.startswith("data:"):
             continue
 
-        src_lower = src.lower()
+        src_lower = candidate_src.lower()
         alt = (img.get("alt") or "").strip()
         alt_lower = alt.lower()
         img_id = (img.get("id") or "").lower()
         img_class = (" ".join(img.get("class", []))).lower()
+        parent_class = (" ".join(img.parent.get("class", []))).lower() if img.parent else ""
 
         # Élimination stricte des logos, bannières, avis, paiements et icônes
         if any(bad in src_lower or bad in img_class or bad in img_id for bad in [
@@ -1061,8 +1161,10 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
             elif len(common) >= 1:
                 score += 40
 
-        # Indices forts dans l'ID ou la classe CSS
-        if any(good in img_id or good in img_class for good in ["prod", "product", "zoom", "main", "primary", "detail", "visuel"]):
+        # Indices forts dans l'ID ou la classe CSS de l'image ou de son conteneur
+        if any(good in img_id or good in img_class or good in parent_class for good in [
+            "prod", "product", "zoom", "main", "primary", "detail", "featured", "gallery", "visuel", "wp-post-image"
+        ]):
             score += 50
 
         # Indices de taille ou de dossier produit dans le chemin SRC
@@ -1073,7 +1175,7 @@ def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image:
         if any(bad in src_lower for bad in ["small", "thumb", "mini", "50x50", "100x100"]):
             score -= 30
 
-        candidates.append((score, urljoin(base_url, src.strip())))
+        candidates.append((score, urljoin(base_url, candidate_src)))
 
     if candidates:
         candidates.sort(key=lambda x: x[0], reverse=True)
@@ -1433,9 +1535,10 @@ async def scan_url(req: ScanRequest):
     page_title = soup.title.string.strip() if soup.title and soup.title.string else domain
     content_lower = html_content.lower()
 
-    # Détection WAF / Anti-Bot / Rendu JavaScript CSR bloquant (Tâche 4)
+    # Détection WAF / Anti-Bot / Rendu JavaScript CSR bloquant
     is_waf_blocked = False
     waf_details = None
+    audit_type = "STANDARD"
 
     is_cf_challenge = (
         status_code in [403, 503] or
@@ -1445,30 +1548,49 @@ async def scan_url(req: ScanRequest):
     )
     is_datadome = "datadome" in content_lower or any("datadome" in k or "datadome" in str(v).lower() for k, v in resp_headers.items())
     dom_text = soup.get_text(strip=True)
-    is_empty_csr = len(dom_text) < 140 and any(k in content_lower for k in ["<div id=\"root\"", "<div id=\"app\"", "<div id=\"__next\"", "noscript"])
+    spa_markers = [
+        "<div id=\"root\"", "<div id='root'", "id=\"root\"",
+        "<div id=\"app\"", "<div id='app'", "id=\"app\"",
+        "<div id=\"__next\"", "id=\"__next\"", "__next_data__", "self.__next_f",
+        "<div id=\"__nuxt\"", "id=\"__nuxt\"",
+        "<app-root", "ng-version",
+        "<div id=\"svelte\"", "id=\"svelte\"",
+        "<div id=\"hydrogen-root\"", "window.__remixcontext",
+        "noscript", "you need to enable javascript"
+    ]
+    is_empty_csr = len(dom_text) < 350 and any(k in content_lower for k in spa_markers)
 
     if is_cf_challenge:
         is_waf_blocked = True
+        audit_type = "WAF_CHALLENGE"
         waf_details = {
+            "type": "WAF",
             "blocker": "Cloudflare WAF / Challenge",
-            "message": "Nous n'avons pas pu lire le DOM complet.",
-            "advice": "autorisez 'AgentReadyBot' dans votre pare-feu / servez un HTML SSR, puis relancez."
+            "message": "Le serveur a renvoyé un challenge de sécurité Cloudflare. Le DOM complet de la fiche produit n'a pas pu être extrait sans exécution de scripts.",
+            "impact": "Blocage Crawlers IA : Les bots OpenAI, Claude et Perplexity sont rejetés s'ils ne disposent pas d'autorisation explicite dans vos règles pare-feu.",
+            "advice": "Autorisez 'AgentReadyBot', 'GPTBot' et 'ClaudeBot' dans vos règles Cloudflare WAF ou servez un fallback HTML SSR."
         }
         crawl_score = min(crawl_score, 25)
     elif is_datadome:
         is_waf_blocked = True
+        audit_type = "WAF_CHALLENGE"
         waf_details = {
+            "type": "WAF",
             "blocker": "DataDome Anti-bot",
-            "message": "Nous n'avons pas pu lire le DOM complet.",
-            "advice": "whitelisez le user-agent 'AgentReadyBot' ou fournissez un flux SSR pré-rendu."
+            "message": "Protection anti-bot DataDome active. Le scraping HTTP brut sans exécution de challenge est filtré.",
+            "impact": "Rejet des agents d'achat autonomes qui explorent votre catalogue sans session utilisateur authentifiée.",
+            "advice": "Whitelisez le User-Agent 'AgentReadyBot' ou fournissez un flux de produits pré-rendu pour les indexeurs IA."
         }
         crawl_score = min(crawl_score, 25)
     elif is_empty_csr:
         is_waf_blocked = True
+        audit_type = "CSR_SPA_UNRENDERED"
         waf_details = {
-            "blocker": "Rendu Client-Side (CSR non pré-rendu)",
-            "message": "Le HTML reçu ne contient aucun texte produit (DOM vide avant exécution JS).",
-            "advice": "activez le Server-Side Rendering (SSR) pour exposer vos fiches produits aux robots IA."
+            "type": "CSR",
+            "blocker": "Rendu Client-Side (CSR / SPA non pré-rendu)",
+            "message": "Le HTML initial ne contient aucun texte produit substantiel. L'affichage repose entièrement sur l'exécution JavaScript côté navigateur.",
+            "impact": "Invisibilité IA : Les moteurs de recherche génératifs (ChatGPT Search, Perplexity) consomment le code source brut pour limiter leurs coûts. Sans SSR, vos fiches sont ignorées ou hallucinées.",
+            "advice": "Activez le Server-Side Rendering (SSR / SSG) sur votre framework ou injectez a minima vos balises Schema.org JSON-LD statiquement dans le HTML initial."
         }
         crawl_score = min(crawl_score, 35)
 
@@ -1654,6 +1776,21 @@ async def scan_url(req: ScanRequest):
             severity="info"
         ))
 
+    # Avertissement prioritaire si CSR non pré-rendu ou challenge WAF
+    if audit_type == "CSR_SPA_UNRENDERED":
+        broken_items.insert(0, BrokenItem(
+            title="⚠️ Architecture 100% Client-Side Rendering (CSR / SPA)",
+            impact="Le HTML brut initial ne contient aucun texte produit avant exécution JavaScript. Les agents IA d'achat privilégient le code source brut et risquent d'ignorer complètement ce catalogue.",
+            severity="critical"
+        ))
+    elif audit_type == "WAF_CHALLENGE":
+        blocker_name = waf_details.get("blocker", "Pare-feu WAF") if waf_details else "Pare-feu WAF"
+        broken_items.insert(0, BrokenItem(
+            title=f"⚠️ Accès restreint par pare-feu ({blocker_name})",
+            impact="Un challenge anti-bot a filtré la requête. Les agents autonomes ne résolvent pas les captchas et seront refoulés.",
+            severity="critical"
+        ))
+
     # Status classification
     if total_score >= 80:
         status = "ready"
@@ -1671,7 +1808,17 @@ async def scan_url(req: ScanRequest):
         badge_class = "badge-blind"
         summary = f"Ce site est difficilement lisible ou bloqué pour les agents IA. Risque d'hallucination élevé lors des recherches d'achat."
 
-    if not prod_data.get("is_product_page"):
+    if audit_type == "CSR_SPA_UNRENDERED":
+        status = "friction"
+        status_label = "Agent Friction (CSR Non Pré-rendu)"
+        badge_class = "badge-friction"
+        summary = f"Architecture CSR/SPA détectée sur {domain} : le HTML brut ne contient pas de texte produit pré-rendu. Les agents IA nécessitent du SSR pour indexer fiablement ce catalogue."
+    elif audit_type == "WAF_CHALLENGE":
+        status = "friction"
+        status_label = "Agent Friction (Pare-feu WAF Détecté)"
+        badge_class = "badge-friction"
+        summary = f"Site protégé par pare-feu ({waf_details.get('blocker', 'WAF')}) sur {domain} : l'analyse du DOM complet a été entravée par un challenge anti-bot."
+    elif not prod_data.get("is_product_page"):
         summary = f"Page d'information / Non-marchande ({domain}) : aucun signal e-commerce direct (ni bouton panier, ni schéma Product). Évaluation de la pureté sémantique et de l'accessibilité pour agents d'information."
 
     prod_name = prod_data.get("name") or page_title
@@ -1748,6 +1895,7 @@ async def scan_url(req: ScanRequest):
         productData=prod_data,
         isWafBlocked=is_waf_blocked,
         wafDetails=waf_details,
+        auditType=audit_type,
         geminiLive=False,
         isProductPage=prod_data.get("is_product_page", True)
     )
@@ -1926,6 +2074,50 @@ async def generate_and_download_pdf(req: PdfReportRequest):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "AgentReady Audit Engine", "version": "1.0.0"}
+
+@app.get("/api/proxy-image")
+async def proxy_image(url: str):
+    """Proxy sécurisé pour afficher les images produits des boutiques ayant une protection anti-hotlink (403/CORS)."""
+    if not url or not (url.startswith("http://") or url.startswith("https://")):
+        raise HTTPException(status_code=400, detail="URL d'image invalide")
+    try:
+        await _assert_scan_target_ok(url)
+    except HTTPException:
+        raise HTTPException(status_code=403, detail="Hôte non autorisé")
+
+    img_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+    }
+    try:
+        async with httpx.AsyncClient(
+            headers=img_headers,
+            follow_redirects=True,
+            timeout=8.0,
+            event_hooks={
+                "request": [_validate_httpx_request_target],
+                "response": [_validate_httpx_redirect_target],
+            }
+        ) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=resp.status_code, detail="Image inaccessible")
+            content_type = resp.headers.get("content-type", "image/jpeg")
+            if not content_type.startswith("image/"):
+                content_type = "image/jpeg"
+            return Response(
+                content=resp.content,
+                media_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=86400",
+                    "Access-Control-Allow-Origin": "*"
+                }
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Erreur proxy image")
 
 # Servir les assets publics (/css, /js, /assets) et index.html sans exposer le répertoire racine
 _base_dir = os.path.dirname(os.path.abspath(__file__))
