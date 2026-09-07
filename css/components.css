@@ -1607,4 +1607,75 @@ pre code {
   }
 }
 
+/* ==========================================================================
+   REPORT PREVIEW (mockup du livrable PDF)
+   ========================================================================== */
+.report-preview {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 14px;
+  padding: 1.75rem;
+  max-width: 780px;
+  margin: 2.5rem auto 0;
+  text-align: left;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-subtle);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+.report-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: #06b6d4;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+.report-preview-head .date { color: #64748b; font-weight: 500; }
+.report-preview-rule { height: 2px; background: #06b6d4; margin: 0.6rem 0 1.1rem; }
+.report-preview-title { font-size: 1.3rem; font-weight: 800; color: #0f172a; }
+.report-preview-url { font-size: 0.85rem; color: #64748b; margin-top: 0.25rem; }
+.report-preview-summary {
+  display: flex;
+  gap: 1.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1.1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.report-score { text-align: center; min-width: 110px; }
+.report-score-num { font-size: 2.6rem; font-weight: 800; color: #f59e0b; line-height: 1; }
+.report-score .den { color: #64748b; font-size: 1rem; }
+.report-score-status { font-size: 0.8rem; font-weight: 700; color: #b45309; margin-top: 0.35rem; }
+.report-summary-text { flex: 1; min-width: 220px; font-size: 0.85rem; color: #334155; line-height: 1.55; }
+.report-pillars-title, .report-diag-title { font-size: 0.92rem; font-weight: 800; color: #0f172a; margin: 1.3rem 0 0.55rem; }
+.report-pillars { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+.report-pillars th { background: #0f172a; color: #fff; text-align: left; padding: 0.5rem 0.6rem; }
+.report-pillars td { border: 1px solid #cbd5e1; padding: 0.5rem 0.6rem; }
+.report-pillars tr:nth-child(even) td { background: #f8fafc; }
+.report-diag {
+  font-size: 0.8rem;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 6px;
+  line-height: 1.6;
+}
+.report-llms {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.report-preview-foot { font-size: 0.7rem; color: #64748b; margin-top: 1.1rem; text-align: center; }
+
 
