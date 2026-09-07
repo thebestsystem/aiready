@@ -9,9 +9,8 @@
 // Tant qu'il est vide, le CTA "Contacter l'équipe Agence" retombe sur un email.
 export const BOOKING_URL = '';
 
-// Lien de paiement Stripe (Payment Link) pour l'offre Pro self-serve.
-// ⚠️ Lien de TEST (sk_test) — remplacez par le lien live après activation du compte.
-export const CHECKOUT_URL = 'https://buy.stripe.com/test_6oUeVegoR2qu1448BJco000';
+// Lien de paiement Stripe (Payment Link) LIVE — 49€/mois, 14 jours d'essai.
+export const CHECKOUT_URL = 'https://buy.stripe.com/7sY8wQb4xfdgfYY19hco003';
 
 // Email de contact de secours (utilisé uniquement quand les URLs sont vides).
 export const CONTACT_EMAIL = 'contact@agentready.io';
