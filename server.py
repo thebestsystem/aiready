@@ -44,6 +44,7 @@ from pydantic import BaseModel
 
 from lead_sink import dispatch_lead
 from pdf_generator import generate_pdf_report   # refactor P1 : rendu ReportLab déporté hors monolithe
+from email_sequence import register_subscriber, send_welcome, process_sequence
 
 
 app = FastAPI(
@@ -2029,6 +2030,7 @@ class LeadRequest(BaseModel):
 class PdfReportRequest(BaseModel):
     email: str
     auditData: Dict[str, Any]
+    consent: bool = False
 
 @app.post("/api/lead", dependencies=[Depends(_lead_rate_limit)])
 def record_lead(req: LeadRequest):
@@ -2053,6 +2055,14 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     # 1. Sauvegarder de façon résiliente le prospect (Postgres + Slack + Backup CSV)
     save_lead(email, domain, name, score, status_label, risk, source="pdf_modal")
 
+    # 1b. Si consentement, démarrer la séquence de nurture (autorepondeur 9 emails)
+    if req.consent:
+        try:
+            register_subscriber(email, domain, name, score, status_label)
+            send_welcome(email, domain, name, score, status_label)
+        except Exception as e:
+            print("Erreur séquence email :", e)
+
     # 2. Générer le document PDF
     try:
         pdf_bytes = await asyncio.to_thread(generate_pdf_report, data, email)
@@ -2070,6 +2080,17 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     except Exception as e:
         print("Erreur génération PDF:", e)
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération du PDF : {str(e)}")
+
+@app.get("/api/process-email-sequence")
+def process_email_sequence(token: str = ""):
+    """Cron d'envoi des emails différés de la séquence de nurture (J+1..J+8)."""
+    expected = (os.getenv("CRON_TOKEN") or "").strip()
+    if not expected:
+        return {"ok": False, "reason": "cron_token_not_configured", "sent": 0}
+    if token != expected:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+    return process_sequence()
+
 
 @app.get("/api/health")
 def health():

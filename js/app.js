@@ -325,6 +325,8 @@ function initPdfModal() {
       e.preventDefault();
       const email = emailInput ? emailInput.value.trim() : '';
       if (!email) return;
+      const consentInput = document.getElementById('lead-consent-input');
+      const consent = consentInput ? consentInput.checked : false;
 
       const submitBtn = modalForm.querySelector('button[type="submit"]');
       const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
@@ -355,7 +357,8 @@ function initPdfModal() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: email,
-            auditData: auditData
+            auditData: auditData,
+            consent: consent
           })
         });
 

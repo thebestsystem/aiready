@@ -421,6 +421,13 @@
             >
           </div>
 
+          <div style="margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 0.5rem; text-align: left;">
+            <input type="checkbox" id="lead-consent-input" style="margin-top: 0.2rem;">
+            <label for="lead-consent-input" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">
+              Recevez aussi mes 9 conseils d'optimisation GEO (gratuits, désinscription en 1 clic).
+            </label>
+          </div>
+
           <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;">
             <i class="fas fa-file-pdf"></i> Générer mon rapport d'exemple
           </button>
@@ -481,6 +488,9 @@
         var email = emailInput ? emailInput.value.trim() : '';
         if (!email) return;
 
+        var consentInput = document.getElementById('lead-consent-input');
+        var consent = consentInput ? consentInput.checked : false;
+
         var btn = form.querySelector('button[type="submit"]');
         var orig = btn.innerHTML;
         btn.disabled = true;
@@ -506,7 +516,7 @@
           var res = await fetch('/api/report/pdf', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, auditData: auditData })
+            body: JSON.stringify({ email: email, auditData: auditData, consent: consent })
           });
           if (!res.ok) throw new Error('HTTP ' + res.status);
 
