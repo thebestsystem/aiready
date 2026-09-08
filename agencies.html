@@ -26,6 +26,9 @@
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
+
+  <!-- Analytics Plausible (mesure d'audience anonyme, sans cookie) — remplacez le domaine par le vôtre -->
+  <script defer data-domain="agentready.io" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 
@@ -312,16 +315,21 @@
         <span class="badge badge-cyan">Lead magnet agence</span>
         <h2 class="section-title">Recevez un rapport white-label <span class="gradient-text">d'exemple</span></h2>
         <p class="section-subtitle" style="color: var(--text-secondary); max-width: 640px; margin-left: auto; margin-right: auto;">
-          Jugez par vous-même avant d'engager un centime. Un rapport de démonstration à votre nom, envoyé en 2 minutes.
+          Jugez par vous-même avant d'engager un centime. Un rapport d'exemple, envoyé en 2 minutes.
         </p>
       </div>
 
-      <button type="button" class="btn btn-primary btn-lg trigger-pdf-modal" style="font-size: 1rem; padding: 1rem 2rem;">
-        <i class="fas fa-file-pdf"></i> Recevoir mon exemple de rapport
-      </button>
+      <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-lg trigger-pdf-modal" style="font-size: 1rem; padding: 1rem 2rem;">
+          <i class="fas fa-file-pdf"></i> Recevoir mon exemple de rapport
+        </button>
+        <a href="https://buy.stripe.com/4gM8wQa0te9cdQQ3hpco004" class="btn btn-secondary btn-lg" style="font-size: 1rem; padding: 1rem 2rem;">
+          <i class="fas fa-bolt"></i> Souscrire — 199€/mois
+        </a>
+      </div>
 
       <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
-        <i class="fas fa-lock"></i> Aucune carte requise. Données 100% confidentielles.
+        <i class="fas fa-check-circle" style="color: var(--emerald-400);"></i> 14 jours d'essai gratuit. Résiliable à tout moment.
       </p>
     </div>
   </section>
@@ -379,9 +387,8 @@
       <div class="footer-bottom">
         <div>© 2026 AgentReady Technologies. Tous droits réservés.</div>
         <div style="display: flex; gap: 1.5rem;">
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Confidentialité</a>
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Conditions Générales</a>
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Sécurité</a>
+          <a href="/confidentialite" style="color: var(--text-muted); text-decoration: none;">Confidentialité</a>
+          <a href="/cgu" style="color: var(--text-muted); text-decoration: none;">Conditions Générales</a>
         </div>
       </div>
     </div>
@@ -398,7 +405,7 @@
         <span class="badge badge-cyan" style="margin-bottom: 1rem;">Rapport White-Label d'exemple</span>
         <h3 style="font-size: 1.5rem; margin-bottom: 0.75rem;">Recevez votre rapport de démonstration</h3>
         <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
-          Un audit GEO de 5 pages à votre nom, pour que vous jugiez de la qualité avant d'engager quoi que ce soit.
+          Un audit GEO de 5 pages (exemple), pour que vous jugiez de la qualité avant d'engager quoi que ce soit.
         </p>
 
         <form id="agency-lead-form">

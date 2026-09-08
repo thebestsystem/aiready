@@ -27,6 +27,9 @@
   <link rel="stylesheet" href="css/design-system.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
+
+  <!-- Analytics Plausible (mesure d'audience anonyme, sans cookie) — remplacez le domaine par le vôtre -->
+  <script defer data-domain="agentready.io" src="https://plausible.io/js/script.js"></script>
 </head>
 <body>
 
@@ -62,11 +65,6 @@
           <li><a href="#autofix" class="nav-link">Auto-Fix & Protocoles</a></li>
           <li><a href="#simulator" class="nav-link">Simulateur (Aperçu)</a></li>
           <li><a href="#pricing" class="nav-link">Tarifs</a></li>
-          <li class="mobile-cta-row" style="display: none;">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-open-gemini-modal-mobile" style="width: 100%;">
-              <i class="fas fa-brain" style="color: var(--cyan-400);"></i> Configurer Gemini
-            </button>
-          </li>
         </ul>
       </nav>
 
@@ -75,10 +73,6 @@
           <a href="/" class="active">Marques</a>
           <a href="/agences">Agences</a>
         </div>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-open-gemini-modal" style="display: flex; align-items: center; gap: 0.5rem;" title="Configurer Google Gemini">
-          <i class="fas fa-brain" style="color: var(--cyan-400);"></i>
-          <span id="gemini-nav-status">Gemini IA</span>
-        </button>
         <a href="#scanner" class="btn btn-primary btn-sm" id="nav-cta-fix">
           <i class="fas fa-bolt"></i> Lancer un audit
         </a>
@@ -1009,9 +1003,8 @@
       <div class="footer-bottom">
         <div>© 2026 AgentReady Technologies. Tous droits réservés.</div>
         <div style="display: flex; gap: 1.5rem;">
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Confidentialité</a>
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Conditions Générales</a>
-          <a href="#" style="color: var(--text-muted); text-decoration: none;">Sécurité</a>
+          <a href="/confidentialite" style="color: var(--text-muted); text-decoration: none;">Confidentialité</a>
+          <a href="/cgu" style="color: var(--text-muted); text-decoration: none;">Conditions Générales</a>
         </div>
       </div>
     </div>

@@ -2149,6 +2149,22 @@ def serve_agences():
         return FileResponse(agencies_file, media_type="text/html")
     raise HTTPException(status_code=404, detail="agencies.html introuvable")
 
+
+@app.get("/confidentialite")
+def serve_confidentialite():
+    f = os.path.join(_base_dir, "confidentialite.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
+
+@app.get("/cgu")
+def serve_cgu():
+    f = os.path.join(_base_dir, "cgu.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
 @app.get("/favicon.ico")
 def serve_favicon():
     svg_icon = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
