@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tableau de bord | AgentReady</title>
+  <meta name="description" content="Votre tableau de bord AgentReady : lancez et retrouvez vos audits.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <div class="bg-grid-pattern" aria-hidden="true"></div>
+
+  <header class="navbar">
+    <div class="container">
+      <a href="/" class="nav-brand">
+        <div class="brand-icon"><i class="fas fa-robot"></i></div>
+        <span>Agent<span class="gradient-text-glow">Ready</span></span>
+      </a>
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <a href="/espace-client" class="btn btn-secondary btn-sm">Mon abonnement</a>
+        <a href="/" class="btn btn-secondary btn-sm">Retour au site</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ VUE LOGIN ============ -->
+  <section id="login-view" class="section">
+    <div class="container" style="max-width: 560px; text-align: center;">
+      <span class="badge badge-cyan">Tableau de bord</span>
+      <h1 class="hero-title" style="font-size: 2rem; margin-top: 1rem;">Vos <span class="gradient-text">audits</span></h1>
+      <p style="color: var(--text-secondary); margin-top: 0.75rem;">
+        Connectez-vous avec l'email de votre abonnement pour lancer et retrouver vos scans.
+      </p>
+      <div class="report-preview" style="max-width: 460px; margin: 2rem auto 0; padding: 1.5rem;">
+        <form id="login-form">
+          <label style="display: block; text-align: left; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem; font-weight: 600;">Votre email (celui du paiement)</label>
+          <input type="email" id="login-email" required placeholder="vous@votre-entreprise.com" class="scanner-input" style="padding-left: 1rem; font-size: 0.95rem;">
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
+            <i class="fas fa-arrow-right"></i> Se connecter
+          </button>
+        </form>
+        <div id="login-feedback" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #dc2626; text-align: left;"></div>
+        <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem; text-align: left;">
+          <i class="fas fa-shield-alt"></i> Aucun mot de passe : on vérifie simplement votre abonnement actif.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VUE DASHBOARD ============ -->
+  <section id="dash-view" class="section" style="display: none;">
+    <div class="container" style="max-width: 860px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <span class="badge badge-cyan">Tableau de bord</span>
+          <h1 class="hero-title" style="font-size: 1.8rem; margin-top: 0.5rem;">Bonjour, <span id="dash-name" class="gradient-text"></span></h1>
+        </div>
+        <button id="logout-btn" class="btn btn-secondary btn-sm"><i class="fas fa-sign-out-alt"></i> Déconnexion</button>
+      </div>
+
+      <!-- Lancer un audit -->
+      <div class="report-preview" style="padding: 1.5rem; margin-top: 1.5rem;">
+        <label style="font-size: 0.85rem; font-weight: 600; color: #475569;">Lancer un audit</label>
+        <form id="scan-form" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+          <input type="text" id="scan-url" required class="scanner-input" placeholder="https://votre-boutique.com/produit" style="flex: 1; min-width: 240px; padding-left: 1rem;">
+          <button type="submit" class="btn btn-primary"><i class="fas fa-bolt"></i> Scanner</button>
+        </form>
+        <div id="scan-feedback" style="display: none; margin-top: 1rem; color: #dc2626; font-size: 0.85rem;"></div>
+        <div id="scan-result" style="display: none; margin-top: 1rem;"></div>
+      </div>
+
+      <!-- Historique -->
+      <h2 class="section-title" style="margin-top: 2.5rem;">Vos <span class="gradient-text">audits</span></h2>
+      <div id="scan-list" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
+    </div>
+  </section>
+
+  <script>
+  (function () {
+    var loginView = document.getElementById('login-view');
+    var dashView = document.getElementById('dash-view');
+    var loginForm = document.getElementById('login-form');
+    var loginEmail = document.getElementById('login-email');
+    var loginFeedback = document.getElementById('login-feedback');
+    var dashName = document.getElementById('dash-name');
+    var logoutBtn = document.getElementById('logout-btn');
+    var scanForm = document.getElementById('scan-form');
+    var scanUrl = document.getElementById('scan-url');
+    var scanFeedback = document.getElementById('scan-feedback');
+    var scanResult = document.getElementById('scan-result');
+    var scanList = document.getElementById('scan-list');
+
+    function getEmail() { return localStorage.getItem('ar_email') || ''; }
+    function getToken() { return localStorage.getItem('ar_token') || ''; }
+
+    function showLogin() {
+      loginView.style.display = '';
+      dashView.style.display = 'none';
+    }
+    function showDash(email) {
+      dashName.textContent = email;
+      loginView.style.display = 'none';
+      dashView.style.display = '';
+      loadScans();
+    }
+
+    function scoreColor(s) {
+      if (s == null) return '#94a3b8';
+      if (s >= 60) return '#22c55e';
+      if (s >= 40) return '#eab308';
+      return '#ef4444';
+    }
+
+    function loadScans() {
+      var email = getEmail(), token = getToken();
+      if (!email || !token) return;
+      fetch('/api/dashboard/scans?email=' + encodeURIComponent(email) + '&token=' + encodeURIComponent(token))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var scans = data.scans || [];
+          if (!scans.length) {
+            scanList.innerHTML = '<div class="report-preview" style="padding: 1.5rem; text-align: center; color: #94a3b8;">Aucun audit pour le moment. Lancez votre premier scan ci-dessus.</div>';
+            return;
+          }
+          scanList.innerHTML = scans.map(function (s) {
+            var date = s.date ? new Date(s.date).toLocaleString('fr-FR') : '';
+            return '<div class="report-preview" style="padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">'
+              + '<div style="min-width: 200px;">'
+              + '<div style="font-weight: 700; color: #e2e8f0;">' + (s.domain || s.url || '') + '</div>'
+              + '<div style="font-size: 0.8rem; color: #64748b;">' + date + '</div>'
+              + '</div>'
+              + '<div style="font-weight: 800; font-size: 1.4rem; color: ' + scoreColor(s.score) + ';">' + (s.score == null ? '—' : s.score + '<span style="font-size: 0.85rem;">/100</span>') + '</div>'
+              + '</div>';
+          }).join('');
+        });
+    }
+
+    loginForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = loginEmail.value.trim();
+      if (!email) return;
+      var btn = loginForm.querySelector('button[type="submit"]');
+      var orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification…';
+      loginFeedback.style.display = 'none';
+      fetch('/api/dashboard/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.d.detail || 'Erreur');
+          localStorage.setItem('ar_email', email);
+          localStorage.setItem('ar_token', res.d.token);
+          showDash(email);
+        })
+        .catch(function (err) {
+          loginFeedback.textContent = err.message;
+          loginFeedback.style.display = 'block';
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = orig;
+        });
+    });
+
+    scanForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var url = scanUrl.value.trim();
+      if (!url) return;
+      var btn = scanForm.querySelector('button[type="submit"]');
+      var orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyse…';
+      scanFeedback.style.display = 'none';
+      scanResult.style.display = 'none';
+      fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) throw new Error(res.d.detail || 'Erreur de scan');
+          var d = res.d;
+          var domain = '';
+          try { domain = new URL(url).hostname; } catch (e) {}
+          scanResult.innerHTML = '<div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">'
+            + '<div style="font-size: 2.5rem; font-weight: 800; color: ' + scoreColor(d.score) + ';">' + (d.score == null ? '—' : d.score) + '<span style="font-size: 1rem;">/100</span></div>'
+            + '<div><div style="font-weight: 700; color: #e2e8f0;">' + (d.status || '') + '</div>'
+            + '<div style="font-size: 0.85rem; color: #64748b;">' + (domain || url) + '</div></div>'
+            + '</div>';
+          scanResult.style.display = 'block';
+          return fetch('/api/dashboard/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: getEmail(), token: getToken(), url: url, domain: domain, score: d.score, status: d.status, result: d })
+          });
+        })
+        .then(function (r) { return r.json(); })
+        .then(function () { loadScans(); })
+        .catch(function (err) {
+          scanFeedback.textContent = err.message;
+          scanFeedback.style.display = 'block';
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = orig;
+        });
+    });
+
+    logoutBtn.addEventListener('click', function () {
+      localStorage.removeItem('ar_email');
+      localStorage.removeItem('ar_token');
+      showLogin();
+    });
+
+    var email = getEmail(), token = getToken();
+    if (email && token) {
+      showDash(email);
+    } else {
+      showLogin();
+    }
+  })();
+  </script>
+</body>
+</html>

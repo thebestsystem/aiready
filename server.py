@@ -9,10 +9,11 @@ import os
 import re
 import json
 import hashlib
+import hmac
 import asyncio
 import socket
 import ipaddress
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import urlparse, urljoin
 
@@ -44,7 +45,9 @@ from pydantic import BaseModel
 
 from lead_sink import dispatch_lead
 from pdf_generator import generate_pdf_report   # refactor P1 : rendu ReportLab déporté hors monolithe
-from email_sequence import register_subscriber, send_welcome, process_sequence
+from email_sequence import register_subscriber, send_welcome, process_sequence, send_payment_welcome
+
+_base_dir = os.path.dirname(os.path.abspath(__file__))
 
 
 app = FastAPI(
@@ -2036,6 +2039,16 @@ class PdfReportRequest(BaseModel):
 class PortalRequest(BaseModel):
     email: str
 
+
+class DashboardSaveRequest(BaseModel):
+    email: str
+    token: str
+    url: str
+    domain: Optional[str] = ""
+    score: Optional[int] = None
+    status: Optional[str] = ""
+    result: Optional[Dict[str, Any]] = None
+
 @app.post("/api/lead", dependencies=[Depends(_lead_rate_limit)])
 def record_lead(req: LeadRequest):
     email = (req.email or "").strip()
@@ -2136,6 +2149,160 @@ async def create_portal_session(req: PortalRequest):
         return {"url": session["url"]}
 
 
+# ==========================================================================
+# ESPACE CLIENT — dashboard de scans (persistance JSON + token HMAC)
+# ==========================================================================
+_SCANS_PATH = os.path.join(_base_dir, "scans.json")
+_WELCOMED_PATH = os.path.join(_base_dir, "welcomed.json")
+_DASH_SECRET = os.getenv("DASH_SECRET", os.getenv("CRON_TOKEN", "agentready-dash-secret"))
+_MAX_SCANS_PER_ACCOUNT = 100
+
+
+def _load_json(path: str):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _save_json(path: str, data) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _load_scans() -> Dict[str, Any]:
+    return _load_json(_SCANS_PATH) or {}
+
+
+def _save_scans(data: Dict[str, Any]) -> None:
+    _save_json(_SCANS_PATH, data)
+
+
+def _sign_email(email: str) -> str:
+    return hmac.new(_DASH_SECRET.encode(), email.strip().lower().encode(), hashlib.sha256).hexdigest()
+
+
+def _verify_token(email: str, token: str) -> bool:
+    if not token:
+        return False
+    return hmac.compare_digest(_sign_email(email), token)
+
+
+async def _has_active_subscription(email: str) -> bool:
+    """Vérifie via Stripe qu'un customer a un abonnement actif ou en période d'essai."""
+    stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
+    if not stripe_key:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r1 = await client.get(
+                "https://api.stripe.com/v1/customers",
+                params={"email": email, "limit": 1},
+                headers={"Authorization": f"Bearer {stripe_key}"},
+            )
+            customers = r1.json().get("data", [])
+            if not customers:
+                return False
+            cid = customers[0]["id"]
+            r2 = await client.get(
+                "https://api.stripe.com/v1/subscriptions",
+                params={"customer": cid, "limit": 100},
+                headers={"Authorization": f"Bearer {stripe_key}"},
+            )
+            subs = r2.json().get("data", [])
+            return any(s.get("status") in ("active", "trialing") for s in subs)
+    except Exception:
+        return False
+
+
+@app.post("/api/dashboard/login")
+async def dashboard_login(req: PortalRequest):
+    email = (req.email or "").strip()
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="Email invalide")
+    if not await _has_active_subscription(email):
+        raise HTTPException(status_code=403, detail="Aucun abonnement actif pour cet email. Vérifiez l'adresse utilisée lors du paiement.")
+    token = _sign_email(email)
+    scans = _load_scans().get(email.lower(), [])
+    return {"token": token, "email": email, "scans": scans}
+
+
+@app.post("/api/dashboard/save")
+async def dashboard_save(req: DashboardSaveRequest):
+    email = (req.email or "").strip().lower()
+    if not _verify_token(email, req.token):
+        raise HTTPException(status_code=401, detail="Session invalide")
+    data = _load_scans()
+    entry = {
+        "url": req.url,
+        "domain": req.domain or "",
+        "score": req.score,
+        "status": req.status or "",
+        "date": datetime.now(timezone.utc).isoformat(),
+        "result": req.result or {},
+    }
+    data.setdefault(email, []).insert(0, entry)
+    data[email] = data[email][:_MAX_SCANS_PER_ACCOUNT]
+    _save_scans(data)
+    return {"ok": True, "count": len(data[email])}
+
+
+@app.get("/api/dashboard/scans")
+async def dashboard_scans(email: str, token: str):
+    if not _verify_token(email, token):
+        raise HTTPException(status_code=401, detail="Session invalide")
+    return {"scans": _load_scans().get(email.lower(), [])}
+
+
+# ==========================================================================
+# EMAIL POST-PAIEMENT — cron d'accueil des nouveaux clients payants
+# ==========================================================================
+@app.get("/api/process-payment-welcome")
+def process_payment_welcome(token: str = ""):
+    expected = (os.getenv("CRON_TOKEN") or "").strip()
+    if not expected:
+        return {"ok": False, "reason": "cron_token_not_configured", "sent": 0}
+    if token != expected:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
+    if not stripe_key:
+        return {"ok": False, "reason": "no_stripe_key", "sent": 0}
+
+    welcomed = set(_load_json(_WELCOMED_PATH) or [])
+    sent = 0
+    try:
+        r = httpx.get(
+            "https://api.stripe.com/v1/subscriptions",
+            params={"status": "active", "limit": 100},
+            headers={"Authorization": f"Bearer {stripe_key}"},
+            timeout=15.0,
+        )
+        subs = r.json().get("data", [])
+        for s in subs:
+            cid = s.get("customer")
+            if not cid:
+                continue
+            cr = httpx.get(
+                f"https://api.stripe.com/v1/customers/{cid}",
+                headers={"Authorization": f"Bearer {stripe_key}"},
+                timeout=15.0,
+            )
+            cust = cr.json()
+            email = (cust.get("email") or "").strip().lower()
+            if not email or email in welcomed:
+                continue
+            name = cust.get("name") or ""
+            if send_payment_welcome(email, name):
+                welcomed.add(email)
+                sent += 1
+        _save_json(_WELCOMED_PATH, sorted(welcomed))
+        return {"ok": True, "sent": sent}
+    except Exception as e:
+        return {"ok": False, "error": str(e), "sent": sent}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "AgentReady Audit Engine", "version": "1.0.0"}
@@ -2185,8 +2352,6 @@ async def proxy_image(url: str):
         raise HTTPException(status_code=502, detail="Erreur proxy image")
 
 # Servir les assets publics (/css, /js, /assets) et index.html sans exposer le répertoire racine
-_base_dir = os.path.dirname(os.path.abspath(__file__))
-
 _css_dir = os.path.join(_base_dir, "css")
 if os.path.isdir(_css_dir):
     app.mount("/css", StaticFiles(directory=_css_dir), name="css")
@@ -2250,6 +2415,14 @@ def serve_mentions():
 @app.get("/espace-client")
 def serve_espace_client():
     f = os.path.join(_base_dir, "espace-client.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
+
+@app.get("/dashboard")
+def serve_dashboard():
+    f = os.path.join(_base_dir, "dashboard.html")
     if os.path.exists(f):
         return FileResponse(f, media_type="text/html")
     raise HTTPException(status_code=404, detail="Page introuvable")

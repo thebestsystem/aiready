@@ -337,3 +337,34 @@ def process_sequence() -> Dict:
     except Exception as e:
         logger.error(f"Erreur process_sequence : {e}")
         return {"ok": False, "error": str(e), "sent": 0}
+
+
+# ==========================================================================
+# EMAIL DE BIENVENUE POST-PAIEMENT (onboarding du nouveau client payant)
+# ==========================================================================
+def send_payment_welcome(email: str, name: str = "") -> bool:
+    """Envoie l'email de bienvenue immédiatement après un paiement réussi."""
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        return False
+    from_addr = os.getenv("RESEND_FROM") or RESEND_DEFAULT_FROM
+    name = (name or "").strip() or "Client"
+    subject = "Bienvenue chez AgentReady — vos 3 prochaines étapes 🚀"
+    body = (
+        f"<p>Bonjour {name},</p>"
+        f"<p>Bienvenue ! Votre abonnement AgentReady est actif. Voici vos 3 prochaines étapes :</p>"
+        f"<ol>"
+        f"<li><b>Lancez votre premier audit</b> — collez l'URL de votre boutique sur "
+        f"<a href='{BASE_URL}' style='color:#06b6d4;'>la page d'accueil</a> et scannez.</li>"
+        f"<li><b>Retrouvez vos scans</b> — tous vos audits sont regroupés dans votre "
+        f"<a href='{BASE_URL}/dashboard' style='color:#06b6d4;'>tableau de bord</a>.</li>"
+        f"<li><b>Gérez votre abonnement</b> — carte, factures, annulation : "
+        f"<a href='{BASE_URL}/espace-client' style='color:#06b6d4;'>votre espace client</a>.</li>"
+        f"</ol>"
+        f"<p>À très vite,<br>L'équipe AgentReady</p>"
+        f"<p style='color:#64748b;font-size:12px;margin-top:24px;'>"
+        f"Vous recevez cet email car vous êtes client AgentReady. "
+        f"Gérer votre abonnement : <a href='{BASE_URL}/espace-client' style='color:#06b6d4;'>espace client</a>."
+        f"</p>"
+    )
+    return send_email(api_key, from_addr, email, subject, body)
