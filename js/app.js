@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const scanner = new ScannerSimulator();
   const splitViewer = new SplitScreenViewer();
 
-  // 2. Setup AI Buyer Simulator Tabs & Gemini
+  // 2. Setup onglets code snippets & simulateur Gemini
   initSimulatorTabs();
 
   // 3. Setup Gemini Configuration Modal
@@ -201,7 +201,6 @@ function initCodeGenerator() {
     if (realAutoFix) {
       if (realAutoFix.llmsTxt) CODE_SNIPPETS.llmsTxt = realAutoFix.llmsTxt;
       if (realAutoFix.schemaJson) CODE_SNIPPETS.schemaJson = realAutoFix.schemaJson;
-      if (realAutoFix.mcpConfig) CODE_SNIPPETS.mcpConfig = realAutoFix.mcpConfig;
       updateCode(currentKey);
     }
   });
@@ -246,7 +245,6 @@ function initCodeGenerator() {
       const content = CODE_SNIPPETS[currentKey];
       let filename = 'llms.txt';
       if (currentKey === 'schemaJson') filename = 'schema-product.json';
-      if (currentKey === 'mcpConfig') filename = 'agentready-mcp.json';
 
       const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);

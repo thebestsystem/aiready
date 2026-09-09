@@ -32,7 +32,7 @@ Toute la stratégie, l'analyse de marché et les spécifications techniques du p
 1. **Crawl & Accessibilité IA :** Analyse des directives `robots.txt` (GPTBot, ClaudeBot, PerplexityBot), blocage WAF (Cloudflare/DataDome) et détection SSR vs CSR.
 2. **Données Structurées (Schema.org) :** Validation rigoureuse du JSON-LD `Product`, `Offer`, variantes, stocks temps réel et politiques de retour/livraison.
 3. **Pureté Sémantique & Efficacité Tokens :** Nettoyage de la pollution DOM/scripts et mesure du coût en tokens pour les LLMs.
-4. **AI Buyer Simulator :** Simulation de requêtes d'achat réelles via LLM (Gemini API) pour évaluer la recommandabilité et détecter le risque d'hallucination.
+4. **Complétude de l'offre :** Vérification déterministe que la fiche contient tout ce qu'un agent IA doit lire (prix, stock, livraison, retour) pour répondre sans inventer.
 5. **Protocoles Agentiques :** Validation et génération de fichiers `llms.txt`, manifestes `agent-card.json` et serveurs **Model Context Protocol (MCP)**.
 
 ---

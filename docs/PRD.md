@@ -29,7 +29,7 @@ graph TD
     B --> C1[1. Machine Crawlability & Anti-Bot]
     B --> C2[2. Schema.org & JSON-LD Validator]
     B --> C3[3. Semantic Density & Token Cost]
-    B --> C4[4. AI Buyer Simulator - Gemini API]
+    B --> C4[4. Complétude de l'offre - déterministe]
     B --> C5[5. Agentic Protocols - llms.txt & MCP]
     C1 & C2 & C3 & C4 & C5 --> D[Calcul Score 0-100 & Rapport Interactif]
     D --> E1[Visualisation Human View vs AI Agent View]
@@ -46,7 +46,7 @@ graph TD
 | **1. Crawlability & Bot Access** | **20%** | • Analyse de `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`).<br/>• Détection des barrières WAF (Cloudflare Challenge, DataDome).<br/>• Détection du rendu (SSR vs CSR avec blocage JS). | Bots autorisés, aucun challenge bloquant, HTML pré-rendu en SSR. |
 | **2. Schema.org & JSON-LD** | **25%** | • Schéma `@type: "Product"` et `Offer`.<br/>• Attributs obligatoires : `name`, `description`, `sku`, `gtin`, `price`, `priceCurrency`, `availability`.<br/>• Attributs avancés : `hasMerchantReturnPolicy`, `shippingDetails`, gestion des variantes. | Schéma 100% conforme sans warnings Schema.org ni champs critiques manquants. |
 | **3. Pureté Sémantique & Tokens** | **20%** | • Ratio texte produit utile / pollution DOM (scripts, trackers, SVG masqués).<br/>• Balisage HTML5 sémantique (`<main>`, `<article>`, `<table>` de specs).<br/>• Estimation du coût en tokens par requête d'IA. | Rendu markdown épuré, moins de 1 500 tokens par fiche produit. |
-| **4. AI Buyer Simulator** | **20%** | • Évaluation en direct via l'API Gemini de 5 questions d'achat type :<br/>  1. Prix et frais de livraison exacts.<br/>  2. Disponibilité en stock et dimensions.<br/>  3. Politique de retour et garantie.<br/>  4. Avantages vs concurrence.<br/>  5. Compatibilité technique.<br/>• Évaluation de l'indice d'hallucination (Faible/Moyen/Élevé). | Réponse exacte et sans ambiguïté sur les 5 questions, 0 hallucination. |
+| **4. Complétude de l'offre** | **20%** | • Vérification déterministe (sans appel LLM) que la fiche contient :<br/>  1. Prix exact.<br/>  2. Disponibilité en stock.<br/>  3. Frais & délais de livraison.<br/>  4. Politique de retour.<br/>• Niveau de risque d'ambiguïté (Faible/Moyen/Élevé) si un signal manque. | Les 4 signaux présents et non ambigus. |
 | **5. Protocoles Agentiques (MCP/llms.txt)** | **15%** | • Présence de `/.well-known/llms.txt` ou `/llms.txt`.<br/>• Présence d'un manifeste `agent-card.json`.<br/>• Endpoint public de disponibilité de panier/stock (MCP). | `llms.txt` valide et endpoint MCP fonctionnel. |
 
 ---
@@ -98,7 +98,7 @@ graph TD
 | :--- | :---: | :---: | :---: |
 | **Scans d'URL** | 3 / jour | 250 produits / mois | 2 500 produits / mois |
 | **Score global & 5 piliers** | ✅ Inclus | ✅ Inclus | ✅ Inclus |
-| **AI Buyer Simulator (Gemini)** | 1 test démo | 50 tests / mois | 500 tests / mois |
+| **Complétude de l'offre (déterministe)** | 1 scan démo | 50 scans / mois | 500 scans / mois |
 | **Générateur llms.txt & JSON-LD** | Aperçu basique | ✅ Export complet illimité | ✅ Export complet illimité |
 | **Serveur MCP Dédié** | ❌ | ✅ Inclus | ✅ Inclus |
 | **Rapports PDF White-Label** | ❌ | ❌ | ✅ Logo & Marque personnalisée |
@@ -112,7 +112,7 @@ graph TD
 ### Phase 1 : Core MVP (Semaines 1 - 2)
 - [x] Spécifications techniques & PRD.
 - [ ] Moteur d'audit backend (Playwright crawler + Schema Parser + test robots.txt).
-- [ ] Intégration Gemini API pour l'AI Buyer Simulator.
+- [x] Complétude de l'offre déterministe (aucune clé requise).
 - [ ] Landing page & Scanner interactif avec jauge de score et split-screen "Human vs AI View".
 
 ### Phase 2 : Auto-Fix & Monétisation (Semaines 3 - 4)

@@ -114,7 +114,7 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertIn("Crawl 20%", html)
         self.assertIn("Schema 25%", html)
         self.assertIn("Tokens 20%", html)
-        self.assertIn("Simulation 20%", html)
+        self.assertIn("Complétude 20%", html)
         self.assertIn("Protocoles 15%", html)
 
         # Élimination de l'ancien 30/40/30
@@ -686,8 +686,6 @@ class TestE2EPipeline(unittest.TestCase):
         # Pas de www. dans les adresses de contact ou configs
         self.assertNotIn("@www.", snippets["llmsTxt"])
         self.assertIn("contact@welcomeoffice.com", snippets["llmsTxt"])
-        self.assertIn('"welcomeoffice-com-agent"', snippets["mcpConfig"])
-        self.assertIn('--store=welcomeoffice.com', snippets["mcpConfig"])
 
         # JSON-LD avec prix et nom corrects
         self.assertIn('"price": "149.99"', snippets["schemaJson"])

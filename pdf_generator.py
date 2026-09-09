@@ -205,7 +205,7 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
         [Paragraph("1. Crawl & Bot Access (robots.txt / WAF)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
         [Paragraph("2. Schema.org & JSON-LD Déterministe", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
         [Paragraph("3. Pureté Sémantique & Économie de Tokens", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_tokens.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_tokens.get('status', '--')), normal_style)],
-        [Paragraph("4. AI Buyer Simulator (Google Gemini Flash)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
+        [Paragraph("4. Complétude de l'offre", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
         [Paragraph("5. Protocoles Agentiques (llms.txt / MCP)", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
     ]
 

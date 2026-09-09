@@ -156,7 +156,7 @@
             <li class="scan-step-item" id="step-0"><i class="fas fa-circle-notch fa-spin"></i> 1. Robots.txt & WAF</li>
             <li class="scan-step-item" id="step-1"><i class="fas fa-circle-notch fa-spin"></i> 2. JSON-LD Schema.org</li>
             <li class="scan-step-item" id="step-2"><i class="fas fa-circle-notch fa-spin"></i> 3. Pureté & Tokens</li>
-            <li class="scan-step-item" id="step-3"><i class="fas fa-clock"></i> 4. Simulateur d'achat IA</li>
+            <li class="scan-step-item" id="step-3"><i class="fas fa-clock"></i> 4. Complétude de l'offre</li>
             <li class="scan-step-item" id="step-4"><i class="fas fa-clock"></i> 5. Protocoles (llms.txt &amp; MCP)</li>
           </ul>
         </div>
@@ -314,7 +314,7 @@
               <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
                 Détail des 5 Piliers d'Audit (Méthodologie PRD · 100% Déterministe)
               </span>
-              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Crawl 20% · Schema 25% · Tokens 20% · Simulation 20% · Protocoles 15%</span>
+              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Crawl 20% · Schema 25% · Tokens 20% · Complétude 20% · Protocoles 15%</span>
             </div>
 
             <div class="pillars-mini-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
@@ -446,7 +446,7 @@
               <div class="ai-metric-bar">
                 <div>Consommation Tokens : <strong id="ai-inspect-tokens" style="color: var(--rose-400);">5 840 tokens</strong></div>
                 <div>Pureté DOM : <strong id="ai-inspect-purity" style="color: var(--amber-400);">12.4% utile</strong></div>
-                <div>Risque d'hallucination : <strong id="ai-inspect-risk" style="color: var(--rose-400);">ÉLEVÉ (45%)</strong></div>
+                <div>Risque d'hallucination : <strong id="ai-inspect-risk" style="color: var(--rose-400);">ÉLEVÉ</strong></div>
               </div>
 
               <div class="ai-raw-stream">
@@ -593,7 +593,7 @@
           <tr><td>1. Crawl &amp; Bot Access</td><td>20%</td><td><b>85/100</b></td><td>Robots OK</td></tr>
           <tr><td>2. Schema.org &amp; JSON-LD</td><td>25%</td><td><b>25/100</b></td><td>Aucun schéma Product</td></tr>
           <tr><td>3. Pureté Sémantique &amp; Tokens</td><td>20%</td><td><b>100/100</b></td><td>359 tokens · fiche légère</td></tr>
-          <tr><td>4. AI Buyer Simulator</td><td>20%</td><td><b>65/100</b></td><td>Risque moyen (20-35%)</td></tr>
+          <tr><td>4. Complétude de l'offre</td><td>20%</td><td><b>65/100</b></td><td>Risque moyen</td></tr>
           <tr><td>5. Protocoles (llms.txt / MCP)</td><td>15%</td><td><b>5/100</b></td><td>Non configuré</td></tr>
         </table>
 
@@ -654,7 +654,7 @@
             <li class="included"><i class="fas fa-check"></i> 1 scan gratuit · ensuite email requis</li>
             <li class="included"><i class="fas fa-check"></i> Calcul du score global 0-100</li>
             <li class="included"><i class="fas fa-check"></i> Aperçu basique du fichier llms.txt</li>
-            <li class="excluded"><i class="fas fa-times"></i> AI Buyer Simulator approfondi</li>
+            <li class="excluded"><i class="fas fa-times"></i> Complétude de l'offre approfondie</li>
             <li class="excluded"><i class="fas fa-times"></i> Serveur MCP dédié</li>
             <li class="excluded"><i class="fas fa-times"></i> Rapports PDF Marque Blanche</li>
           </ul>
@@ -675,7 +675,7 @@
 
           <ul class="pricing-features">
             <li class="included"><i class="fas fa-check"></i> <strong>1 panier récupéré par mois rembourse 5×</strong> votre abonnement</li>
-            <li class="included"><i class="fas fa-check"></i> AI Buyer Simulator : ce que ChatGPT répond sur vos produits</li>
+            <li class="included"><i class="fas fa-check"></i> Complétude de l'offre : ce que ChatGPT répond sur vos produits</li>
             <li class="included"><i class="fas fa-check"></i> Export 1 clic de votre « carte d'identité IA » (llms.txt & JSON-LD)</li>
             <li class="included"><i class="fas fa-clock"></i> Alertes email si votre thème casse vos données produit — bientôt</li>
             <li class="excluded"><i class="fas fa-times"></i> Rapports PDF Marque Blanche</li>
@@ -828,7 +828,7 @@
       
       <div class="section-header">
         <span class="badge badge-cyan">Testez par vous-même</span>
-        <h2 class="section-title">AI Buyer Simulator : <span class="gradient-text">Ce que l'IA répond</span></h2>
+        <h2 class="section-title">Complétude de l'offre : <span class="gradient-text">Ce que l'IA répond</span></h2>
         <p class="lead">
           Testez comment un agent IA (ChatGPT Search / Gemini) répond aux questions critiques des acheteurs selon que votre boutique est standard ou optimisée AgentReady.
         </p>
@@ -932,9 +932,6 @@
             </button>
             <button class="code-tab-btn" data-tab="schemaJson">
               <i class="fas fa-code"></i> JSON-LD Schema.org Enrichi
-            </button>
-            <button class="code-tab-btn" data-tab="mcpConfig">
-              <i class="fas fa-server"></i> Serveur MCP (Claude & ChatGPT)
             </button>
           </div>
 
@@ -1145,7 +1142,7 @@
         <span class="badge badge-cyan" style="margin-bottom: 1rem;">Export Complet Marque Blanche</span>
         <h3 id="modal-heading" style="font-size: 1.5rem; margin-bottom: 0.75rem;">Recevez l'audit complet de 5 pages</h3>
         <p id="modal-subtext" style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
-          Inclut la liste exhaustive des 32 points de contrôle, le rapport d'hallucinations de l'AI Buyer Simulator et le fichier <code>llms.txt</code> prêt à déployer.
+          Inclut la liste exhaustive des 32 points de contrôle, le rapport d'hallucinations de l'Complétude de l'offre et le fichier <code>llms.txt</code> prêt à déployer.
         </p>
 
         <form>

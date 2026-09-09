@@ -76,7 +76,7 @@ export const AUDIT_PRESETS = {
       crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué / WAF Challenge", label: "Crawl & Bots Access" },
       schema: { score: 30, max: 100, weight: "25%", status: "Incomplet (0 Offer)", label: "Schema.org / JSON-LD" },
       tokens: { score: 40, max: 100, weight: "20%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
-      simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "AI Buyer Simulator (Déterministe)" },
+      simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "Complétude de l'offre" },
       proto: { score: 10, max: 100, weight: "15%", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
@@ -84,7 +84,7 @@ export const AUDIT_PRESETS = {
       extractedPrice: "249.00 EUR (Devise non explicite dans JSON-LD)",
       stockStatus: "UNKNOWN (Bouton 'Ajouter au panier' rendu via React client-side)",
       shippingTerms: "MISSING (L'agent IA estime la livraison entre 5€ et 15€)",
-      hallucinationRisk: "ÉLEVÉ (45%)",
+      hallucinationRisk: "ÉLEVÉ",
       botAccess: "GPTBot: BLOCKED (WAF Challenge)"
     }
   },
@@ -162,7 +162,7 @@ export const AUDIT_PRESETS = {
       crawl: { score: 98, max: 100, weight: "20%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
       schema: { score: 96, max: 100, weight: "25%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
       tokens: { score: 95, max: 100, weight: "20%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
-      simulator: { score: 98, max: 100, weight: "20%", status: "5/5 Exactitude (0 hallucination)", label: "AI Buyer Simulator (Déterministe)" },
+      simulator: { score: 98, max: 100, weight: "20%", status: "5/5 points vérifiés", label: "Complétude de l'offre" },
       proto: { score: 94, max: 100, weight: "15%", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
@@ -170,7 +170,7 @@ export const AUDIT_PRESETS = {
       extractedPrice: "249.00 EUR TTC (Garantie prix exact)",
       stockStatus: "IN_STOCK (42 unités disponibles en direct)",
       shippingTerms: "Livraison gratuite 24h France métropolitaine",
-      hallucinationRisk: "NUL (0%)",
+      hallucinationRisk: "NUL",
       botAccess: "GPTBot, ClaudeBot, PerplexityBot: AUTORISÉS"
     }
   },
@@ -187,7 +187,7 @@ export const AUDIT_PRESETS = {
     brokenItems: [
       {
         title: "Politique de retour et conditions d'échange absentes",
-        impact: "Les agents IA indiquent 'conditions inconnues' à l'acheteur, provoquant 35% d'hésitation et d'abandon.",
+        impact: "Les agents IA indiquent 'conditions inconnues' à l'acheteur, provoquant une forte hésitation et de l'abandon.",
         severity: "warning"
       },
       {
@@ -248,7 +248,7 @@ export const AUDIT_PRESETS = {
       crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
       schema: { score: 60, max: 100, weight: "25%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
       tokens: { score: 68, max: 100, weight: "20%", status: "2 450 tokens", label: "Pureté Sémantique" },
-      simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "AI Buyer Simulator (Déterministe)" },
+      simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "Complétude de l'offre" },
       proto: { score: 35, max: 100, weight: "15%", status: "llms.txt alternatif (/llms.txt)", label: "Protocoles (llms.txt / MCP)" }
     },
     aiView: {
@@ -256,13 +256,13 @@ export const AUDIT_PRESETS = {
       extractedPrice: "79.00 EUR",
       stockStatus: "En stock (variantes M & L non détaillées)",
       shippingTerms: "Frais de port introuvables dans le DOM machine",
-      hallucinationRisk: "MOYEN (22%)",
+      hallucinationRisk: "MOYEN",
       botAccess: "Bots IA: AUTORISÉS"
     }
   }
 };
 
-/* AI Buyer Simulator Dialogues */
+/* Complétude de l'offre Dialogues */
 export const SIMULATOR_QUESTIONS = [
   {
     id: "shipping",
@@ -383,28 +383,5 @@ export const CODE_SNIPPETS = {
     }
   }
 }
-</script>`,
-
-  mcpConfig: `{
-  "mcpServers": {
-    "sonus-store-agent": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@agentready/mcp-server-commerce",
-        "--store-id=store_sonus_9823",
-        "--api-key=ag_live_sec_8923bca0129"
-      ],
-      "env": {
-        "AGENTREADY_REGION": "eu-west-1",
-        "AUTO_RESERVE_INVENTORY": "true"
-      },
-      "capabilities": [
-        "query_product_stock",
-        "validate_discount_code",
-        "generate_cart_checkout_token"
-      ]
-    }
-  }
-}`
+</script>`
 };

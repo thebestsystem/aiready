@@ -67,7 +67,7 @@ SEQUENCE = [
             "<p>Votre score de <b>{score}/100</b> n'est pas un jugement esthétique : c'est une mesure de "
             "<b>certitude transactionnelle</b>. Un agent IA ne recommande un produit que s'il peut confirmer "
             "prix, stock, livraison et retour sans risque d'hallucination.</p>"
-            "<p>Les 5 piliers pondérés : Crawl (20%), Schema.org (25%), Tokens (20%), Simulation (20%), Protocoles (15%).</p>"
+            "<p>Les 5 piliers pondérés : Crawl (20%), Schema.org (25%), Tokens (20%), Complétude (20%), Protocoles (15%).</p>"
             "<p><a href='{site}#pillars' style='color:#06b6d4;'>Décoder mon score pilier par pilier →</a></p>"
             + _FOOTER
         ),
@@ -111,7 +111,7 @@ SEQUENCE = [
             "<li><b>Sans AgentReady :</b> « je ne peux pas confirmer » → panier abandonné.</li>"
             "<li><b>Avec AgentReady :</b> « livraison gratuite, en stock » → achat validé.</li>"
             "</ul>"
-            "<p>C'est l'AI Buyer Simulator : il teste réellement ce que répondent ChatGPT et Gemini sur votre boutique.</p>"
+            "<p>C'est le contrôle de complétude d'offre : il vérifie que votre fiche contient tout ce qu'un agent IA doit lire (prix, stock, livraison, retour).</p>"
             "<p><a href='{site}#simulator' style='color:#06b6d4;'>Tester le simulateur →</a></p>"
             + _FOOTER
         ),
@@ -135,7 +135,7 @@ SEQUENCE = [
             "<p>Le plan Pro Merchant (49€/mois) débloque :</p>"
             "<ul>"
             "<li><b>250 fiches produit</b> monitorées / mois.</li>"
-            "<li><b>AI Buyer Simulator complet</b> (50 requêtes Gemini).</li>"
+            "<li><b>Contrôle de complétude d'offre</b> sur toutes vos fiches.</li>"
             "<li>Export illimité de <code>llms.txt</code> & JSON-LD enrichi.</li>"
             "<li><b>Serveur MCP Cloud dédié</b> hébergé.</li>"
             "<li>Alertes d'intégrité de thème par email.</li>"
@@ -150,7 +150,7 @@ SEQUENCE = [
             "<p>Bonjour,</p>"
             "<p>Vous avez vu le diagnostic sur <b>{domain}</b>. Il est temps de le corriger.</p>"
             "<p>L'essai de 14 jours est <b>gratuit et sans engagement</b> : scanner 250 fiches, "
-            "générer vos correctifs, et voir la différence sur le simulateur IA.</p>"
+            "générer vos correctifs, et voir la différence sur le score de complétude.</p>"
             "<p>Aucun risque : résiliable en un clic.</p>"
             "<p><a href='{trial}' style='color:#06b6d4;font-weight:bold;'>Démarrer mon essai gratuit →</a></p>"
             + _FOOTER

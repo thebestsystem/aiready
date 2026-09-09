@@ -67,7 +67,7 @@
 
 ### Nos 4 Piliers de Différenciation :
 1. **Universel & Indépendant :** Fonctionne instantanément sur n'importe quelle URL (Shopify, WooCommerce, Magento, PrestaShop, BigCommerce, Next.js / Hydrogen / Nuxt).
-2. **AI Buyer Simulator (Test d'intention réel) :** Ne se limite pas à du linting de balises : envoie de vraies requêtes d'achat à des LLMs (Gemini / GPT) pour évaluer si l'agent recommande ou disqualifie le produit.
+2. **Complétude de l'offre :** Ne se limite pas à du linting de balises : vérifie de façon déterministe que l'agent dispose de toutes les données (prix, stock, livraison, retour) pour recommander le produit sans inventer.
 3. **Génération de Protocoles Agentiques (MCP & `llms.txt`) :** Offre aux e-commerçants la création en 1-clic d'un serveur **Model Context Protocol (MCP)** et d'un `llms.txt` structuré.
 4. **Arme de Prospection pour Agences (White-Label) :** Permet aux agences web et consultants SEO de générer des audits d'acquisition personnalisés en 15 secondes pour closer des prestations GEO.
 

@@ -1090,20 +1090,9 @@ def generate_auto_fix_snippets(domain: str, prod: Dict[str, Any]) -> Dict[str, s
 - Support et contact agents: contact@{clean_domain}
 """
 
-    mcp_config = f"""{{
-  "mcpServers": {{
-    "{clean_domain.replace('.', '-')}-agent": {{
-      "command": "npx",
-      "args": ["-y", "@agentready/mcp-server-commerce", "--store={clean_domain}"],
-      "capabilities": ["query_stock", "checkout_token"]
-    }}
-  }}
-}}"""
-
     return {
         "llmsTxt": llms_txt,
-        "schemaJson": json_ld,
-        "mcpConfig": mcp_config
+        "schemaJson": json_ld
     }
 
 def extract_best_product_image(soup: BeautifulSoup, base_url: str, schema_image: Optional[str] = None) -> Optional[str]:
@@ -1673,7 +1662,7 @@ async def scan_url(req: ScanRequest):
     # PILIER 3 : Pureté Sémantique & Tokens
     semantic_res = analyze_semantic_purity(soup, len(html_content))
 
-    # PILIER 4 : AI Buyer Simulator (100% Déterministe en V1 - Zéro appel LLM au scan)
+    # PILIER 4 : Complétude de l'offre (100% Déterministe en V1 - Zéro appel LLM au scan)
     sim_score = 30
     sim_details = []
     price_val = prod_data.get("price")
@@ -1784,7 +1773,7 @@ async def scan_url(req: ScanRequest):
     elif not prod_info.get("has_shipping") or not prod_info.get("has_return"):
         broken_items.append(BrokenItem(
             title="Politique de retour ou frais d'expédition non structurés",
-            impact="Risque d'hallucination de 35% : l'IA invente des frais de port erronés ou renvoie vers Amazon.",
+            impact="Risque d'hallucination élevé : l'IA invente des frais de port erronés ou renvoie vers Amazon.",
             severity="warning"
         ))
     
@@ -1903,7 +1892,7 @@ async def scan_url(req: ScanRequest):
                 score=sim_res["score"],
                 weight="20%",
                 status=f"Risque {sim_res['hallucination_risk']}",
-                label="AI Buyer Simulator (Déterministe)",
+                label="Complétude de l'offre",
                 details=sim_res["details"]
             ),
             "proto": PillarScore(

@@ -461,7 +461,7 @@ export class ScannerSimulator {
         this.stepsList[2].classList.replace('active', 'done');
         this.stepsList[2].querySelector('i').className = 'fas fa-check-circle';
       }
-      this.progressStatus.textContent = "4/5 Simulateur d'achat IA (intention & checkout)...";
+      this.progressStatus.textContent = "4/5 Complétude de l'offre (intention & checkout)...";
       this.progressBar.style.width = "80%";
       if (this.stepsList[3]) this.stepsList[3].classList.add('active');
     }, 1250);
