@@ -2032,6 +2032,10 @@ class PdfReportRequest(BaseModel):
     auditData: Dict[str, Any]
     consent: bool = False
 
+
+class PortalRequest(BaseModel):
+    email: str
+
 @app.post("/api/lead", dependencies=[Depends(_lead_rate_limit)])
 def record_lead(req: LeadRequest):
     email = (req.email or "").strip()
@@ -2090,6 +2094,46 @@ def process_email_sequence(token: str = ""):
     if token != expected:
         raise HTTPException(status_code=403, detail="Accès refusé")
     return process_sequence()
+
+
+_PORTAL_CONFIG_ID = os.getenv("STRIPE_PORTAL_CONFIG_ID", "bpc_1UDmiZKxPAag3m0W87eEqP53")
+_PORTAL_BASE_URL = os.getenv("BASE_URL", "https://aiready-production-a6c0.up.railway.app").rstrip("/")
+
+
+@app.post("/api/portal-session")
+async def create_portal_session(req: PortalRequest):
+    """Génère une session du Stripe Customer Portal (gestion d'abonnement, carte, annulation)."""
+    email = (req.email or "").strip()
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="Email invalide")
+    stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
+    if not stripe_key:
+        raise HTTPException(status_code=503, detail="Paiement non configuré")
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        r1 = await client.get(
+            "https://api.stripe.com/v1/customers",
+            params={"email": email, "limit": 1},
+            headers={"Authorization": f"Bearer {stripe_key}"},
+        )
+        customers = r1.json().get("data", [])
+        if not customers:
+            raise HTTPException(status_code=404, detail="Aucun abonnement trouvé pour cet email. Vérifiez l'adresse utilisée lors du paiement.")
+        customer_id = customers[0]["id"]
+
+        r2 = await client.post(
+            "https://api.stripe.com/v1/billing_portal/sessions",
+            data={
+                "customer": customer_id,
+                "return_url": f"{_PORTAL_BASE_URL}/espace-client",
+                "configuration": _PORTAL_CONFIG_ID,
+            },
+            headers={"Authorization": f"Bearer {stripe_key}"},
+        )
+        session = r2.json()
+        if "url" not in session:
+            raise HTTPException(status_code=502, detail=f"Erreur portail : {session.get('error', session)}")
+        return {"url": session["url"]}
 
 
 @app.get("/api/health")
@@ -2190,6 +2234,22 @@ def serve_cgu():
 @app.get("/methodologie")
 def serve_methodologie():
     f = os.path.join(_base_dir, "methodologie.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
+
+@app.get("/mentions-legales")
+def serve_mentions():
+    f = os.path.join(_base_dir, "mentions-legales.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
+
+@app.get("/espace-client")
+def serve_espace_client():
+    f = os.path.join(_base_dir, "espace-client.html")
     if os.path.exists(f):
         return FileResponse(f, media_type="text/html")
     raise HTTPException(status_code=404, detail="Page introuvable")

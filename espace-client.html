@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace client | AgentReady</title>
+  <meta name="description" content="Gérez votre abonnement AgentReady : carte, factures, annulation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="css/design-system.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <div class="bg-grid-pattern" aria-hidden="true"></div>
+
+  <header class="navbar">
+    <div class="container">
+      <a href="/" class="nav-brand">
+        <div class="brand-icon"><i class="fas fa-robot"></i></div>
+        <span>Agent<span class="gradient-text-glow">Ready</span></span>
+      </a>
+      <a href="/" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Retour au site</a>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container" style="max-width: 560px; text-align: center;">
+      <span class="badge badge-cyan">Espace client</span>
+      <h1 class="hero-title" style="font-size: 2rem; margin-top: 1rem;">Gérez votre <span class="gradient-text">abonnement</span></h1>
+      <p style="color: var(--text-secondary); margin-top: 0.75rem; line-height: 1.6;">
+        Mettez à jour votre carte, consultez vos factures, ou annulez votre abonnement en 1 clic.
+      </p>
+
+      <div class="report-preview" style="max-width: 460px; margin: 2rem auto 0; padding: 1.5rem;">
+        <form id="portal-form">
+          <label style="display: block; text-align: left; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem; font-weight: 600;">Votre email (celui du paiement)</label>
+          <input
+            type="email"
+            id="portal-email"
+            required
+            placeholder="vous@votre-entreprise.com"
+            class="scanner-input"
+            style="padding-left: 1rem; font-size: 0.95rem;"
+          >
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
+            <i class="fas fa-arrow-right"></i> Accéder à mon espace
+          </button>
+        </form>
+        <div id="portal-feedback" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #dc2626; text-align: left;"></div>
+        <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem; text-align: left;">
+          <i class="fas fa-shield-alt"></i> Vous serez redirigé vers l'espace sécurisé Stripe. Aucun mot de passe à retenir.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+  (function () {
+    var form = document.getElementById('portal-form');
+    if (!form) return;
+    var emailInput = document.getElementById('portal-email');
+    var feedback = document.getElementById('portal-feedback');
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      var email = emailInput.value.trim();
+      if (!email) return;
+
+      var btn = form.querySelector('button[type="submit"]');
+      var orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification…';
+      feedback.style.display = 'none';
+
+      try {
+        var res = await fetch('/api/portal-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Erreur inattendue');
+        }
+        window.location.href = data.url;
+      } catch (err) {
+        feedback.textContent = err.message;
+        feedback.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = orig;
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
