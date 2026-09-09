@@ -306,6 +306,26 @@ def _report_rate_limit(request: Request) -> None:
     _enforce_rate_limit(request, _report_limiter, "/api/report/pdf")
 
 
+# Rate-limiting sur les endpoints d'authentification (anti-énumération de comptes)
+# et le proxy d'images (bande passante).
+_AUTH_RATE_LIMIT = _int_env_clamped("AUTH_RATE_LIMIT", "10", 1, 10_000)
+_AUTH_RATE_WINDOW_SECONDS = _int_env_clamped("AUTH_RATE_WINDOW_SECONDS", "60", 1, 86_400)
+_PROXY_RATE_LIMIT = _int_env_clamped("PROXY_RATE_LIMIT", "60", 1, 10_000)
+_PROXY_RATE_WINDOW_SECONDS = _int_env_clamped("PROXY_RATE_WINDOW_SECONDS", "60", 1, 86_400)
+_auth_limiter = _SlidingWindowRateLimiter(_AUTH_RATE_LIMIT, _AUTH_RATE_WINDOW_SECONDS)
+_proxy_limiter = _SlidingWindowRateLimiter(_PROXY_RATE_LIMIT, _PROXY_RATE_WINDOW_SECONDS)
+
+
+def _auth_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : anti-énumération des comptes (login, portail, save)."""
+    _enforce_rate_limit(request, _auth_limiter, "auth")
+
+
+def _proxy_rate_limit(request: Request) -> None:
+    """Dépendance FastAPI : anti-abus du proxy d'images (bande passante)."""
+    _enforce_rate_limit(request, _proxy_limiter, "/api/proxy-image")
+
+
 class ScanRequest(BaseModel):
     url: str
     geminiApiKey: Optional[str] = None
@@ -1684,7 +1704,8 @@ async def scan_url(req: ScanRequest):
         else:
             sim_details.append("Stock disponible détecté dans le HTML")
 
-    sim_risk = "FAIBLE (0-5%)" if sim_score >= 80 else ("MOYEN (20-35%)" if sim_score >= 55 else "ÉLEVÉ (50%+)")
+    # Risque estimé par heuristique déterministe (complétude de l'offre), pas une mesure LLM.
+    sim_risk = "FAIBLE" if sim_score >= 80 else ("MOYEN" if sim_score >= 55 else "ÉLEVÉ")
     sim_res = {
         "score": sim_score,
         "hallucination_risk": sim_risk,
@@ -1928,7 +1949,7 @@ def gemini_status():
         "model": GEMINI_PRIMARY_MODEL
     }
 
-@app.post("/api/gemini/test")
+@app.post("/api/gemini/test", dependencies=[Depends(_sim_rate_limit)])
 async def test_gemini_key(payload: Dict[str, str]):
     client = _get_gemini_client(payload.get("geminiApiKey"))
     if not client:
@@ -2123,7 +2144,7 @@ _PORTAL_CONFIG_ID = os.getenv("STRIPE_PORTAL_CONFIG_ID", "bpc_1UDmiZKxPAag3m0W87
 _PORTAL_BASE_URL = os.getenv("BASE_URL", "https://aiready-production-a6c0.up.railway.app").rstrip("/")
 
 
-@app.post("/api/portal-session")
+@app.post("/api/portal-session", dependencies=[Depends(_auth_rate_limit)])
 async def create_portal_session(req: PortalRequest):
     """Génère une session du Stripe Customer Portal (gestion d'abonnement, carte, annulation)."""
     email = (req.email or "").strip()
@@ -2414,7 +2435,7 @@ async def _has_active_subscription(email: str) -> bool:
         return False
 
 
-@app.post("/api/dashboard/login")
+@app.post("/api/dashboard/login", dependencies=[Depends(_auth_rate_limit)])
 async def dashboard_login(req: PortalRequest):
     _require_dash_secret()
     email = (req.email or "").strip()
@@ -2429,7 +2450,7 @@ async def dashboard_login(req: PortalRequest):
     return {"token": token, "email": email, "scans": scans}
 
 
-@app.post("/api/dashboard/save")
+@app.post("/api/dashboard/save", dependencies=[Depends(_auth_rate_limit)])
 async def dashboard_save(req: DashboardSaveRequest):
     _require_dash_secret()
     email = (req.email or "").strip().lower()
@@ -2528,7 +2549,7 @@ def process_payment_welcome(token: str = ""):
 def health():
     return {"status": "ok", "service": "AgentReady Audit Engine", "version": "1.0.0"}
 
-@app.get("/api/proxy-image")
+@app.get("/api/proxy-image", dependencies=[Depends(_proxy_rate_limit)])
 async def proxy_image(url: str):
     """Proxy sécurisé pour afficher les images produits des boutiques ayant une protection anti-hotlink (403/CORS)."""
     if not url or not (url.startswith("http://") or url.startswith("https://")):

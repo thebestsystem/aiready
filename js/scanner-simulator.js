@@ -372,25 +372,9 @@ export class ScannerSimulator {
       // Échec RÉSEAU réel (backend injoignable / hors-ligne) : pas d'erreur HTTP à montrer.
       // On garde un repli non-crash mais on le signale explicitement pour ne pas
       // faire passer ce scénario pour un véritable audit du site.
-      console.warn('Backend unreachable, fallback démo transparent :', err);
-      const cleanDomain = customUrl.trim().replace(/^https?:\/\//, '').split('/')[0];
+      console.warn('Backend unreachable, aucun résultat affiché :', err);
       this.completeProgressUI(() => {
-        this.showScanError(null, `Le scan en direct est indisponible (${err && err.name ? err.name : 'réseau'}). Un aperçu de démonstration est affiché — vérifiez que le service /api/scan répond puis réessayez.`, customUrl.trim());
-        const fallbackData = { ...AUDIT_PRESETS['friction'] };
-        fallbackData.domain = customUrl.trim();
-        fallbackData.name = `Boutique : ${cleanDomain}`;
-        fallbackData.productData = {
-          name: `Article scanné (${cleanDomain})`,
-          brand: cleanDomain,
-          price: "À confirmer",
-          currency: "EUR",
-          description: `Analyse directe de la boutique ${cleanDomain}. Schéma partiel détecté.`,
-          has_stock: false,
-          has_shipping: false,
-          has_return: false
-        };
-        fallbackData.summary = `Le site ${cleanDomain} est accessible mais certaines données structurées sont incomplètes.`;
-        this.displayResults(fallbackData);
+        this.showScanError(null, `Le scan en direct est indisponible (${err && err.name ? err.name : 'réseau'}). Vérifiez votre connexion puis réessayez — aucun résultat n'est affiché sans un scan réel.`, customUrl.trim());
         this.isScanning = false;
       });
     }

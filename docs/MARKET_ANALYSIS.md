@@ -38,7 +38,7 @@
 | :--- | :--- | :--- | :--- |
 | **Shopify Agentic Scanner** (`commerce-readiness.shopify.io`) | Outil natif gratuit pour les marchands Shopify. | Marque officielle Shopify, gratuit, ~30 points de contrôle. | **Limité à l'écosystème Shopify**, diagnostic purement passif, aucune simulation active de LLM, aucune correction automatique. |
 | **FoundGPT & Verity Score** | Applications Shopify de GEO / AEO. | Facile à installer sur Shopify, génération de `llms.txt`, correction de descriptions. | Verrouillé sur Shopify (aucun support WooCommerce, Magento, Headless), scoring limité à 11 règles simples, pas d'endpoint MCP. |
-| **Profound / Peec AI / Otterly.ai** | Plateformes d'analytics de marque pour moteurs IA. | Tracking puissant des citations de marque dans ChatGPT/Perplexity, dashboard exécutif. | **Tarification prohibitive** ($500 - $3 000/mois), orienté RP / grands comptes, aucun audit technique actionnable de fiches produits ni outil de réparation. |
+| **Profound / Peec AI / Otterly.ai** | Plateformes d'analytics de marque pour moteurs IA. | Tracking puissant des citations de marque dans ChatGPT/Perplexity, dashboard exécutif. | **Entrée de gamme accessible** (Profound dès $99, Peec dès €85, Otterly dès $29/mois) mais orienté **tracking de citations** — aucun audit technique actionnable de fiches produits ni outil de réparation. |
 | **Outils SEO Traditionnels** (Semrush, Ahrefs, Screaming Frog) | Géants de l'audit SEO classique. | Notoriété massive, bases de données géantes. | Obsolètes pour les LLMs : ne mesurent ni la consommation de tokens, ni le risque d'hallucination, ni les nouveaux protocoles machine (MCP/llms.txt). |
 
 ---
