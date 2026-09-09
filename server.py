@@ -2093,6 +2093,11 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     email = (req.email or "").strip()
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Email invalide : impossible de générer le rapport sans adresse valide.")
+    if (req.brandName or "").strip():
+        # La marque blanche est la feature payante (plan Agency) : gate serveur sur abonnement actif.
+        # Sans abonnement Stripe actif, on refuse — sinon le white-label serait gratuit en un curl.
+        if not await _has_active_subscription(email):
+            raise HTTPException(status_code=403, detail="La marque blanche nécessite un abonnement Agency actif (199 €/mois).")
     domain = data.get("domain", "ecommerce")
     name = data.get("name", "Produit")
     score = data.get("score", 50)
