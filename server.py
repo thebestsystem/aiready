@@ -2190,6 +2190,168 @@ def _save_scans(data: Dict[str, Any]) -> None:
     _save_json(_SCANS_PATH, data)
 
 
+# ---------------------------------------------------------------------------
+# Persistance PostgreSQL (DATABASE_URL / SUPABASE_URL) avec repli JSON local.
+# Les scans clients et le ledger "welcomed" survivent ainsi aux redeploys Railway.
+# ---------------------------------------------------------------------------
+import logging
+_logger = logging.getLogger("agentready.persistence")
+
+_PSYCOPG = None
+try:
+    import psycopg  # v3
+    _PSYCOPG = "psycopg3"
+except ImportError:
+    try:
+        import psycopg2  # v2
+        _PSYCOPG = "psycopg2"
+    except ImportError:
+        pass
+
+
+def _pg_conn_str() -> Optional[str]:
+    url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_URL")
+    if not url:
+        return None
+    return url.replace("postgres://", "postgresql://", 1) if url.startswith("postgres://") else url
+
+
+def _pg_connect(conn_str: str):
+    if _PSYCOPG == "psycopg3":
+        import psycopg
+        return psycopg.connect(conn_str)
+    import psycopg2
+    return psycopg2.connect(conn_str)
+
+
+_scans_table_ready = False
+
+
+def _ensure_scans_table(conn) -> None:
+    global _scans_table_ready
+    if _scans_table_ready:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS scans ("
+            " id SERIAL PRIMARY KEY,"
+            " email VARCHAR(255) NOT NULL,"
+            " url TEXT,"
+            " domain VARCHAR(255),"
+            " score INTEGER,"
+            " status VARCHAR(100),"
+            " date TEXT,"
+            " result JSONB,"
+            " created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
+            ");"
+            "CREATE INDEX IF NOT EXISTS idx_scans_email ON scans(email);"
+            "CREATE INDEX IF NOT EXISTS idx_scans_created ON scans(created_at);"
+        )
+    conn.commit()
+    _scans_table_ready = True
+
+
+_welcomed_table_ready = False
+
+
+def _ensure_welcomed_table(conn) -> None:
+    global _welcomed_table_ready
+    if _welcomed_table_ready:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS welcomed ("
+            " email VARCHAR(255) PRIMARY KEY,"
+            " created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
+            ");"
+        )
+    conn.commit()
+    _welcomed_table_ready = True
+
+
+def _save_scan_pg(email: str, entry: Dict[str, Any]) -> bool:
+    conn_str = _pg_conn_str()
+    if not conn_str or not _PSYCOPG:
+        return False
+    try:
+        with _pg_connect(conn_str) as conn:
+            _ensure_scans_table(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO scans (email, url, domain, score, status, date, result) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (email, entry.get("url"), entry.get("domain"), entry.get("score"),
+                     entry.get("status"), entry.get("date"), json.dumps(entry.get("result") or {})),
+                )
+            conn.commit()
+        return True
+    except Exception as e:
+        _logger.warning("scan PG save failed: %s", e)
+        return False
+
+
+def _load_scans_pg(email: str) -> Optional[list]:
+    conn_str = _pg_conn_str()
+    if not conn_str or not _PSYCOPG:
+        return None
+    try:
+        with _pg_connect(conn_str) as conn:
+            _ensure_scans_table(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT url, domain, score, status, date, result FROM scans "
+                    "WHERE email = %s ORDER BY created_at DESC, id DESC LIMIT %s",
+                    (email, _MAX_SCANS_PER_ACCOUNT),
+                )
+                rows = cur.fetchall()
+        out = []
+        for url, domain, score, status, date, result in rows:
+            if isinstance(result, str) and result:
+                result = json.loads(result)
+            elif not isinstance(result, dict):
+                result = {}
+            out.append({"url": url, "domain": domain, "score": score,
+                        "status": status, "date": date, "result": result})
+        return out
+    except Exception as e:
+        _logger.warning("scan PG load failed: %s", e)
+        return None
+
+
+def _load_welcomed_pg() -> Optional[set]:
+    conn_str = _pg_conn_str()
+    if not conn_str or not _PSYCOPG:
+        return None
+    try:
+        with _pg_connect(conn_str) as conn:
+            _ensure_welcomed_table(conn)
+            with conn.cursor() as cur:
+                cur.execute("SELECT email FROM welcomed")
+                return {r[0] for r in cur.fetchall()}
+    except Exception as e:
+        _logger.warning("welcomed PG load failed: %s", e)
+        return None
+
+
+def _add_welcomed_pg(email: str) -> bool:
+    conn_str = _pg_conn_str()
+    if not conn_str or not _PSYCOPG:
+        return False
+    try:
+        with _pg_connect(conn_str) as conn:
+            _ensure_welcomed_table(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO welcomed (email) VALUES (%s) ON CONFLICT (email) DO NOTHING",
+                    (email,),
+                )
+            conn.commit()
+        return True
+    except Exception as e:
+        _logger.warning("welcomed PG add failed: %s", e)
+        return False
+
+
 def _sign_email(email: str) -> str:
     if not _DASH_SECRET:
         raise HTTPException(status_code=503, detail="Dashboard non configuré : définissez DASH_SECRET côté serveur.")
@@ -2244,7 +2406,9 @@ async def dashboard_login(req: PortalRequest):
     if not await _has_active_subscription(email):
         raise HTTPException(status_code=403, detail="Aucun abonnement actif pour cet email. Vérifiez l'adresse utilisée lors du paiement.")
     token = _sign_email(email)
-    scans = _load_scans().get(email.lower(), [])
+    scans = _load_scans_pg(email.lower())
+    if scans is None:
+        scans = _load_scans().get(email.lower(), [])
     return {"token": token, "email": email, "scans": scans}
 
 
@@ -2254,7 +2418,6 @@ async def dashboard_save(req: DashboardSaveRequest):
     email = (req.email or "").strip().lower()
     if not _verify_token(email, req.token):
         raise HTTPException(status_code=401, detail="Session invalide")
-    data = _load_scans()
     entry = {
         "url": req.url,
         "domain": req.domain or "",
@@ -2263,6 +2426,10 @@ async def dashboard_save(req: DashboardSaveRequest):
         "date": datetime.now(timezone.utc).isoformat(),
         "result": req.result or {},
     }
+    if _save_scan_pg(email, entry):
+        return {"ok": True}
+    # Repli JSON local (pas de DATABASE_URL configurée)
+    data = _load_scans()
     data.setdefault(email, []).insert(0, entry)
     data[email] = data[email][:_MAX_SCANS_PER_ACCOUNT]
     _save_scans(data)
@@ -2274,7 +2441,10 @@ async def dashboard_scans(email: str, token: str):
     _require_dash_secret()
     if not _verify_token(email, token):
         raise HTTPException(status_code=401, detail="Session invalide")
-    return {"scans": _load_scans().get(email.lower(), [])}
+    scans = _load_scans_pg(email.lower())
+    if scans is None:
+        scans = _load_scans().get(email.lower(), [])
+    return {"scans": scans}
 
 
 # ==========================================================================
@@ -2292,7 +2462,10 @@ def process_payment_welcome(token: str = ""):
     if not stripe_key:
         return {"ok": False, "reason": "no_stripe_key", "sent": 0}
 
-    welcomed = set(_load_json(_WELCOMED_PATH) or [])
+    welcomed = _load_welcomed_pg()
+    pg_mode = welcomed is not None
+    if not pg_mode:
+        welcomed = set(_load_json(_WELCOMED_PATH) or [])
     sent = 0
     try:
         r = httpx.get(
@@ -2318,8 +2491,11 @@ def process_payment_welcome(token: str = ""):
             name = cust.get("name") or ""
             if send_payment_welcome(email, name):
                 welcomed.add(email)
+                if pg_mode:
+                    _add_welcomed_pg(email)
                 sent += 1
-        _save_json(_WELCOMED_PATH, sorted(welcomed))
+        if not pg_mode:
+            _save_json(_WELCOMED_PATH, sorted(welcomed))
         return {"ok": True, "sent": sent}
     except Exception as e:
         return {"ok": False, "error": str(e), "sent": sent}
