@@ -60,10 +60,10 @@
       <nav>
         <ul class="nav-menu" id="main-nav-menu">
           <li><a href="#scanner" class="nav-link">Scanner</a></li>
-          <li><a href="#split-screen" class="nav-link">Human vs AI</a></li>
-          <li><a href="#pillars" class="nav-link">5 Piliers d'Audit</a></li>
-          <li><a href="#autofix" class="nav-link">Auto-Fix & Protocoles</a></li>
-          <li><a href="#simulator" class="nav-link">Simulateur (Aperçu)</a></li>
+          <li><a href="#split-screen" class="nav-link">Ce que l'IA lit</a></li>
+          <li><a href="#pillars" class="nav-link">Comment on note</a></li>
+          <li><a href="#autofix" class="nav-link">Le correctif</a></li>
+          <li><a href="#simulator" class="nav-link">Simulateur</a></li>
           <li><a href="#pricing" class="nav-link">Tarifs</a></li>
         </ul>
       </nav>
@@ -90,6 +90,9 @@
         <span class="badge badge-cyan">
           <span class="pulse-dot"></span> Agentic Web Index 2026 • ChatGPT, Gemini & Claude Ready
         </span>
+        <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: var(--emerald-400); border: 1px solid rgba(16, 185, 129, 0.3); margin-left: 0.5rem;">
+          <i class="fas fa-check-circle"></i> Compatible Shopify · WooCommerce · Magento
+        </span>
       </div>
 
       <h1 class="hero-title animate-slide-up" id="hero-main-title">
@@ -102,7 +105,7 @@
       </p>
 
       <!-- Language Toggle / Archive FR -->
-      <div style="margin-bottom: 1.5rem; display: flex; justify-content: center; gap: 0.5rem; font-size: 0.8rem;">
+      <div style="margin-bottom: 1.5rem; display: none; justify-content: center; gap: 0.5rem; font-size: 0.8rem;">
         <button type="button" class="lang-toggle-btn active" id="lang-btn-fr" style="background: none; border: 1px solid var(--border-medium); color: #fff; padding: 0.2rem 0.6rem; border-radius: 4px; cursor: pointer;">
           🇫🇷 Français
         </button>
@@ -131,19 +134,20 @@
 
         <div class="scanner-subtext">
           <span id="scanner-subtext-label">⚡ Scan gratuit · Sans inscription · Résultat en 2 secondes · 100% Déterministe</span>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;"><i class="fas fa-lock"></i> On analyse uniquement l'URL publique — aucune installation, aucun accès requis.</div>
         </div>
 
         <!-- Preset Chips -->
         <div class="preset-chips">
           <span>Exemples en 1-clic :</span>
           <button type="button" class="preset-chip" data-preset="blind" title="Simulation déterministe d'une boutique bloquée">
-            🔴 [Démo Simulation] Shopify Standard (Agent Blind)
+            🔴 Exemple : boutique Shopify non optimisée
           </button>
           <button type="button" class="preset-chip" data-preset="friction" title="Simulation déterministe avec données partielles">
-            🟡 [Démo Simulation] WooCommerce (Agent Friction)
+            🟡 Exemple : boutique WooCommerce avec données partielles
           </button>
           <button type="button" class="preset-chip" data-preset="ready" title="Simulation déterministe optimisée Agent Ready">
-            🟢 [Démo Simulation] Fiche Optimisée (Agent Ready)
+            🟢 Exemple : boutique optimisée AgentReady
           </button>
         </div>
 
@@ -236,6 +240,7 @@
               <div style="text-align: right;">
                 <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Score Agentique</div>
                 <div style="font-size: 1.75rem; font-weight: 800; color: #fff;" id="header-score-number">--<span style="font-size: 1rem; color: var(--text-muted);">/100</span></div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem;">Moyenne secteur : 38/100</div>
               </div>
               <div class="gauge-svg-container" style="width: 64px; height: 64px;">
                 <svg width="64" height="64" viewBox="0 0 96 96">
@@ -298,6 +303,17 @@
             <div class="autofix-code-preview">
               <pre><code id="inline-autofix-code">Chargement du correctif...</code></pre>
             </div>
+          </div>
+
+          <!-- CTA POST-SCAN : débloquer les correctifs -->
+          <div style="margin: 1.5rem 0; padding: 1.25rem; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div style="font-weight: 700; color: #fff;">Débloquez tous les correctifs</div>
+              <div style="font-size: 0.85rem; color: var(--text-secondary);">1 correctif affiché · les autres sont réservés aux membres Pro</div>
+            </div>
+            <a href="#pricing" class="btn btn-primary" style="white-space: nowrap;">
+              <i class="fas fa-bolt"></i> Essai 14 jours gratuit
+            </a>
           </div>
 
           <!-- 3. PILIERS DE SCORING DÉTERMINISTES (5 Piliers PRD) -->
@@ -508,6 +524,10 @@
           <p style="color: var(--text-secondary); font-size: 0.92rem; line-height: 1.6;">Pas besoin de développeur : on génère le correctif prêt à coller, compatible Shopify, WooCommerce et Magento.</p>
         </div>
       </div>
+
+      <p style="text-align: center; margin-top: 1.75rem; color: var(--text-secondary); font-size: 0.95rem;">
+        <strong style="color: #fff;">Vous êtes concerné si :</strong> vous vendez en ligne (Shopify, WooCommerce, Magento) avec un catalogue de plus de ~50 références.
+      </p>
     </div>
   </section>
 
@@ -520,14 +540,17 @@
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: var(--cyan-400); margin-bottom: 0.5rem;">+805%</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Croissance du trafic généré par les moteurs IA (glissement annuel)</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Source : McKinsey · Bain · Morgan Stanley</div>
         </div>
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: var(--emerald-400); margin-bottom: 0.5rem;">2,5x–4x</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Taux de conversion supérieur vs recherche Google standard</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Source : McKinsey · Bain · Morgan Stanley</div>
         </div>
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: var(--violet-400); margin-bottom: 0.5rem;">$46,7 Md</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Marché de l'IA agentique retail en 2026 (projection $3-5 000 Md en 2030)</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Source : McKinsey · Bain · Morgan Stanley</div>
         </div>
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">&lt; 15s</div>
@@ -535,7 +558,7 @@
         </div>
       </div>
       <div style="text-align: center; margin-top: 1.75rem; font-size: 0.8rem; color: var(--text-muted);">
-        Sources : McKinsey &amp; Company, Bain &amp; Company, Morgan Stanley — <a href="/docs/MARKET_ANALYSIS.md" target="_blank" style="color: var(--cyan-400); text-decoration: none;">voir l'étude de marché complète</a>
+        <a href="/methodologie" style="color: var(--cyan-400); text-decoration: none;">Voir la méthodologie complète →</a>
       </div>
     </div>
   </section>
@@ -556,7 +579,7 @@
       <div class="report-preview">
         <div class="report-preview-head">
           <div><span style="font-weight: 800;">AgentReady</span> • Rapport d'Audit White-Label 2026</div>
-          <div class="date">Date d'analyse : 07/09/2026 à 14:32</div>
+          <div class="date">Date d'analyse : <span class='report-date-dynamic'>—</span></div>
         </div>
         <div class="report-preview-rule"></div>
         <div class="report-preview-title">Audit Technique : Boutique E-commerce (démo)</div>
@@ -577,14 +600,14 @@
           <tr><th>Pilier</th><th>Poids</th><th>Score</th><th>Statut Technique</th></tr>
           <tr><td>1. Crawl &amp; Bot Access</td><td>20%</td><td><b>85/100</b></td><td>Robots OK</td></tr>
           <tr><td>2. Schema.org &amp; JSON-LD</td><td>25%</td><td><b>25/100</b></td><td>Aucun schéma Product</td></tr>
-          <tr><td>3. Pureté Sémantique &amp; Tokens</td><td>20%</td><td><b>100/100</b></td><td>359 tokens (84% bruit)</td></tr>
+          <tr><td>3. Pureté Sémantique &amp; Tokens</td><td>20%</td><td><b>100/100</b></td><td>359 tokens · fiche légère</td></tr>
           <tr><td>4. AI Buyer Simulator</td><td>20%</td><td><b>65/100</b></td><td>Risque moyen (20-35%)</td></tr>
           <tr><td>5. Protocoles (llms.txt / MCP)</td><td>15%</td><td><b>5/100</b></td><td>Non configuré</td></tr>
         </table>
 
         <div class="report-diag-title">Diagnostic de l'IA Acheteuse</div>
         <div class="report-diag">
-          <b>Prix extrait :</b> 51.77 GBP · <b>Stock :</b> détecté · <b>Livraison :</b> non structurée · <b>Risque d'hallucination :</b> MOYEN
+          <b>Prix extrait :</b> 249.00 € · <b>Stock :</b> détecté · <b>Livraison :</b> non structurée · <b>Risque d'hallucination :</b> MOYEN
         </div>
 
         <div class="report-llms"># /.well-known/llms.txt
@@ -636,7 +659,7 @@
           </div>
 
           <ul class="pricing-features">
-            <li class="included"><i class="fas fa-check"></i> 3 scans de fiches produits par jour</li>
+            <li class="included"><i class="fas fa-check"></i> 3 scans gratuits par jour · sans inscription</li>
             <li class="included"><i class="fas fa-check"></i> Calcul du score global 0-100</li>
             <li class="included"><i class="fas fa-check"></i> Aperçu basique du fichier llms.txt</li>
             <li class="excluded"><i class="fas fa-times"></i> AI Buyer Simulator approfondi</li>
@@ -687,7 +710,7 @@
             <li class="included"><i class="fas fa-check"></i> Support prioritaire & canal Slack partagé</li>
           </ul>
 
-          <a href="/agences" class="btn btn-secondary" style="width: 100%;">Contacter l'équipe Agence</a>
+          <a href="/agences" class="btn btn-secondary" style="width: 100%;">Découvrir l'offre Agence</a>
         </div>
 
       </div>
@@ -702,7 +725,7 @@
     <div class="container">
       
       <div class="section-header">
-        <span class="badge badge-cyan">Méthodologie Déterministe PRD</span>
+        <span class="badge badge-cyan">Notre méthode</span>
         <h2 class="section-title">Les 5 Piliers d'Évaluation <span class="gradient-text">AgentReady</span></h2>
         <p class="lead">
           Nous vérifions les 5 points qui déterminent si une IA recommande (ou ignore) votre boutique.
@@ -808,7 +831,7 @@
     <div class="container">
       
       <div class="section-header">
-        <span class="badge badge-cyan">Démonstration Interactive</span>
+        <span class="badge badge-cyan">Testez par vous-même</span>
         <h2 class="section-title">AI Buyer Simulator : <span class="gradient-text">Ce que l'IA répond</span></h2>
         <p class="lead">
           Testez comment un agent IA (ChatGPT Search / Gemini) répond aux questions critiques des acheteurs selon que votre boutique est standard ou optimisée AgentReady.
@@ -898,7 +921,7 @@
     <div class="container">
       
       <div class="section-header">
-        <span class="badge badge-cyan">Générateur Automatique</span>
+        <span class="badge badge-cyan">Le correctif</span>
         <h2 class="section-title">Corrigez votre boutique en <span class="gradient-text">1-Clic</span></h2>
         <p class="lead">
           AgentReady génère instantanément les fichiers et snippets de code nécessaires pour brancher votre boutique aux agents IA.
@@ -1018,8 +1041,7 @@
           <div class="footer-col">
             <h4>Ressources</h4>
             <ul>
-              <li><a href="/docs/PRD.md" target="_blank">Spécifications PRD</a></li>
-              <li><a href="/docs/MARKET_ANALYSIS.md" target="_blank">Données de Marché 2026</a></li>
+              <li><a href="/methodologie">Méthodologie &amp; Sources</a></li>
               <li><a href="https://llmstxt.org/" target="_blank">Standard llms.txt</a></li>
               <li><a href="https://modelcontextprotocol.io/" target="_blank">Model Context Protocol</a></li>
             </ul>
@@ -1170,5 +1192,12 @@
 
   <!-- Scripts -->
   <script type="module" src="js/app.js?v=2.7"></script>
+<script>
+  (function() {
+    var d = new Date();
+    var dateStr = d.toLocaleDateString('fr-FR', {day:'2-digit',month:'2-digit',year:'numeric'}) + ' à ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+    document.querySelectorAll('.report-date-dynamic').forEach(function(el){ el.textContent = dateStr; });
+  })();
+</script>
 </body>
 </html>

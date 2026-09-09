@@ -2186,6 +2186,14 @@ def serve_cgu():
         return FileResponse(f, media_type="text/html")
     raise HTTPException(status_code=404, detail="Page introuvable")
 
+
+@app.get("/methodologie")
+def serve_methodologie():
+    f = os.path.join(_base_dir, "methodologie.html")
+    if os.path.exists(f):
+        return FileResponse(f, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Page introuvable")
+
 @app.get("/favicon.ico")
 def serve_favicon():
     svg_icon = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
