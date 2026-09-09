@@ -313,6 +313,22 @@ function initPdfModal() {
     document.body.style.overflow = '';
   };
 
+  let gateCallback = null;
+  const modalHeading = document.getElementById('modal-heading');
+  const modalSubtext = document.getElementById('modal-subtext');
+  const modalSubmitBtn = document.getElementById('modal-submit-btn');
+  const defaultHeading = modalHeading ? modalHeading.innerHTML : '';
+  const defaultSubtext = modalSubtext ? modalSubtext.innerHTML : '';
+  const defaultBtn = modalSubmitBtn ? modalSubmitBtn.innerHTML : '';
+
+  window.agentready_requestEmail = function (cb) {
+    gateCallback = cb;
+    if (modalHeading) modalHeading.innerHTML = 'Débloquez votre prochain scan';
+    if (modalSubtext) modalSubtext.innerHTML = 'Entrez votre email pour lancer cet audit. Pas de carte, pas d\'inscription.';
+    if (modalSubmitBtn) modalSubmitBtn.innerHTML = '<i class="fas fa-bolt"></i> Continuer mon scan';
+    openModal();
+  };
+
   openBtns.forEach(btn => btn.addEventListener('click', openModal));
   if (closeBtn) closeBtn.addEventListener('click', closeModal);
 
@@ -327,6 +343,17 @@ function initPdfModal() {
       if (!email) return;
       const consentInput = document.getElementById('lead-consent-input');
       const consent = consentInput ? consentInput.checked : false;
+
+      if (gateCallback) {
+        const cb = gateCallback;
+        gateCallback = null;
+        closeModal();
+        if (modalHeading) modalHeading.innerHTML = defaultHeading;
+        if (modalSubtext) modalSubtext.innerHTML = defaultSubtext;
+        if (modalSubmitBtn) modalSubmitBtn.innerHTML = defaultBtn;
+        cb(email, consent);
+        return;
+      }
 
       const submitBtn = modalForm.querySelector('button[type="submit"]');
       const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';

@@ -175,6 +175,34 @@ export class ScannerSimulator {
     const handleScanTrigger = (e) => {
       if (e) e.preventDefault();
       const url = this.input ? this.input.value.trim() : '';
+      if (!url) return;
+
+      const self = this;
+      const freeScans = parseInt(localStorage.getItem('ar_free_scans') || '0', 10);
+      const hasEmail = !!(localStorage.getItem('ar_lead_email') || '').trim();
+
+      if (freeScans >= 1 && !hasEmail && window.agentready_requestEmail) {
+        window.agentready_requestEmail((email, consent) => {
+          if (email) {
+            localStorage.setItem('ar_lead_email', email);
+            localStorage.setItem('ar_lead_consent', consent ? '1' : '0');
+            let domain = '';
+            try { domain = new URL(url).hostname; } catch (err) { domain = url; }
+            try {
+              fetch('/api/lead', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, domain: domain, source: 'scan_gate' })
+              });
+            } catch (err) {}
+          }
+          localStorage.setItem('ar_free_scans', String(freeScans + 1));
+          self.runScan(url);
+        });
+        return;
+      }
+
+      localStorage.setItem('ar_free_scans', String(freeScans + 1));
       this.runScan(url);
     };
 
