@@ -821,10 +821,18 @@ def analyze_schema(json_ld_list: List[Dict[str, Any]]) -> Dict[str, Any]:
             score += 20
             details.append(f"Prix explicite trouvé : {price_val} {currency}")
         
-        if "availability" in offers:
-            has_stock = True
-            score += 10
-            details.append("Disponibilité en stock structurée")
+        avail = offers.get("availability")
+        if avail is not None and str(avail).strip() not in ("", "None", "null"):
+            av = str(avail).strip().lower()
+            score += 10  # le champ est présent et machine-readable : signal positif pour l'agent
+            if any(k in av for k in ("outofstock", "soldout", "discontinued")):
+                has_stock = False
+                details.append("Disponibilité structurée (OutOfStock) : produit signalé en rupture")
+            elif any(k in av for k in ("instock", "preorder", "limitedavailability", "onlineonly", "instoreonly")):
+                has_stock = True
+                details.append("Disponibilité en stock structurée")
+            else:
+                details.append("Champ 'availability' présent mais valeur non standard")
 
         if "shippingDetails" in offers or "shippingRate" in offers:
             has_shipping = True
@@ -2154,7 +2162,10 @@ async def create_portal_session(req: PortalRequest):
 # ==========================================================================
 _SCANS_PATH = os.path.join(_base_dir, "scans.json")
 _WELCOMED_PATH = os.path.join(_base_dir, "welcomed.json")
-_DASH_SECRET = os.getenv("DASH_SECRET", os.getenv("CRON_TOKEN", "agentready-dash-secret"))
+# Sécurité : plus AUCUN secret par défaut en dur (l'ancien "agentready-dash-secret"
+# était dans un repo public). Si DASH_SECRET est absent, les endpoints
+# /api/dashboard/* répondent 503 au lieu de retomber sur un secret public.
+_DASH_SECRET = os.getenv("DASH_SECRET")
 _MAX_SCANS_PER_ACCOUNT = 100
 
 
@@ -2180,6 +2191,8 @@ def _save_scans(data: Dict[str, Any]) -> None:
 
 
 def _sign_email(email: str) -> str:
+    if not _DASH_SECRET:
+        raise HTTPException(status_code=503, detail="Dashboard non configuré : définissez DASH_SECRET côté serveur.")
     return hmac.new(_DASH_SECRET.encode(), email.strip().lower().encode(), hashlib.sha256).hexdigest()
 
 
@@ -2187,6 +2200,12 @@ def _verify_token(email: str, token: str) -> bool:
     if not token:
         return False
     return hmac.compare_digest(_sign_email(email), token)
+
+
+def _require_dash_secret() -> None:
+    """Refuse l'accès au dashboard tant que DASH_SECRET n'est pas configuré côté serveur."""
+    if not _DASH_SECRET:
+        raise HTTPException(status_code=503, detail="Dashboard non configuré : définissez DASH_SECRET côté serveur.")
 
 
 async def _has_active_subscription(email: str) -> bool:
@@ -2218,6 +2237,7 @@ async def _has_active_subscription(email: str) -> bool:
 
 @app.post("/api/dashboard/login")
 async def dashboard_login(req: PortalRequest):
+    _require_dash_secret()
     email = (req.email or "").strip()
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Email invalide")
@@ -2230,6 +2250,7 @@ async def dashboard_login(req: PortalRequest):
 
 @app.post("/api/dashboard/save")
 async def dashboard_save(req: DashboardSaveRequest):
+    _require_dash_secret()
     email = (req.email or "").strip().lower()
     if not _verify_token(email, req.token):
         raise HTTPException(status_code=401, detail="Session invalide")
@@ -2250,6 +2271,7 @@ async def dashboard_save(req: DashboardSaveRequest):
 
 @app.get("/api/dashboard/scans")
 async def dashboard_scans(email: str, token: str):
+    _require_dash_secret()
     if not _verify_token(email, token):
         raise HTTPException(status_code=401, detail="Session invalide")
     return {"scans": _load_scans().get(email.lower(), [])}
