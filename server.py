@@ -2042,6 +2042,7 @@ class PdfReportRequest(BaseModel):
     email: str
     auditData: Dict[str, Any]
     consent: bool = False
+    brandName: Optional[str] = None
 
 
 class PortalRequest(BaseModel):
@@ -2090,9 +2091,10 @@ async def generate_and_download_pdf(req: PdfReportRequest):
 
     # 2. Générer le document PDF
     try:
-        pdf_bytes = await asyncio.to_thread(generate_pdf_report, data, email)
+        pdf_bytes = await asyncio.to_thread(generate_pdf_report, data, email, req.brandName)
         clean_domain = re.sub(r'[^a-zA-Z0-9_-]', '_', domain.replace('https://', '').replace('http://', '').split('/')[0])
-        filename = f"AgentReady-Audit-{clean_domain}.pdf"
+        brand_part = re.sub(r'[^a-zA-Z0-9_-]', '_', (req.brandName or "").strip())[:40] or "AgentReady"
+        filename = f"{brand_part}-Audit-{clean_domain}.pdf"
 
         return Response(
             content=pdf_bytes,

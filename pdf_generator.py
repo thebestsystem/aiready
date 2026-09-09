@@ -35,7 +35,7 @@ def _escape_xml(val: Any) -> str:
     return _sax_escape(str(val))
 
 
-def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None) -> bytes:
+def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None, brand_name: Optional[str] = None) -> bytes:
     """Génère le PDF d'audit (bytes). Lève RuntimeError si ReportLab absent."""
     if not REPORTLAB_AVAILABLE:
         raise RuntimeError("ReportLab n'est pas installé sur le serveur.")
@@ -102,9 +102,14 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
 
     # 1. Header Banner
     date_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    brand_label = (brand_name or "").strip()
+    header_brand = (
+        f"<b>{_escape_xml(brand_label)}</b> • Rapport d'Audit 2026"
+        if brand_label else "<b>AgentReady</b> • Rapport d'Audit White-Label 2026"
+    )
     header_data = [
         [
-            Paragraph("<b>AgentReady</b> • Rapport d'Audit White-Label 2026", brand_style),
+            Paragraph(header_brand, brand_style),
             Paragraph(f"Date d'analyse : <b>{date_str}</b>", normal_style)
         ]
     ]
@@ -255,7 +260,11 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None)
 
     # Footer
     story.append(HRFlowable(width="100%", thickness=0.5, color=c_text_muted, spaceBefore=10, spaceAfter=8))
-    story.append(Paragraph("Rapport certifié édité par la plateforme AgentReady. Les standards d'audit suivent les spécifications W3C Schema.org 2026 et les protocoles LLMs.txt & Model Context Protocol (MCP).", ParagraphStyle('Foot', parent=styles['Normal'], fontSize=7.5, leading=10, textColor=c_text_muted)))
+    if brand_label:
+        footer_txt = f"Rapport d'audit édité par {_escape_xml(brand_label)}. Les standards d'audit suivent les spécifications W3C Schema.org 2026 et les protocoles LLMs.txt & Model Context Protocol (MCP)."
+    else:
+        footer_txt = "Rapport certifié édité par la plateforme AgentReady. Les standards d'audit suivent les spécifications W3C Schema.org 2026 et les protocoles LLMs.txt & Model Context Protocol (MCP)."
+    story.append(Paragraph(footer_txt, ParagraphStyle('Foot', parent=styles['Normal'], fontSize=7.5, leading=10, textColor=c_text_muted)))
 
     doc.build(story)
     return buffer.getvalue()
