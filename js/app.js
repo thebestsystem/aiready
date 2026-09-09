@@ -298,8 +298,16 @@ function initPdfModal() {
   const modalForm = modalFormContainer ? (modalFormContainer.querySelector('form') || modalFormContainer) : null;
   const modalSuccess = document.getElementById('modal-success-state');
   const emailInput = document.getElementById('lead-email-input');
+  const brandInput = document.getElementById('lead-brand-input');
 
   if (!modal) return;
+
+  if (brandInput) {
+    try {
+      const saved = localStorage.getItem('agentready_brand_name');
+      if (saved) brandInput.value = saved;
+    } catch (e) {}
+  }
 
   const openModal = () => {
     modal.classList.add('active');
@@ -379,13 +387,19 @@ function initPdfModal() {
           summary: 'Audit généré depuis AgentReady Scanner.'
         };
 
+        const brandName = brandInput ? brandInput.value.trim() : '';
+        if (brandName) {
+          try { localStorage.setItem('agentready_brand_name', brandName); } catch (e) {}
+        }
+
         const res = await fetch('/api/report/pdf', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: email,
             auditData: auditData,
-            consent: consent
+            consent: consent,
+            brandName: brandName
           })
         });
 
@@ -399,7 +413,8 @@ function initPdfModal() {
         a.style.display = 'none';
         a.href = downloadUrl;
         const cleanDomain = (auditData.domain || 'audit').replace(/^https?:\/\//, '').replace(/[^a-zA-Z0-9.-]/g, '_');
-        a.download = `AgentReady-Audit-${cleanDomain}.pdf`;
+        const dlBrand = (brandName || 'AgentReady').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+        a.download = `${dlBrand}-Audit-${cleanDomain}.pdf`;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => {
