@@ -120,7 +120,9 @@
     function loadScans() {
       var email = getEmail(), token = getToken();
       if (!email || !token) return;
-      fetch('/api/dashboard/scans?email=' + encodeURIComponent(email) + '&token=' + encodeURIComponent(token))
+      fetch('/api/dashboard/scans?email=' + encodeURIComponent(email), {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var scans = data.scans || [];

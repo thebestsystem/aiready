@@ -37,7 +37,7 @@ from collections import defaultdict
 
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, Header
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -2354,16 +2354,31 @@ def _add_welcomed_pg(email: str) -> bool:
         return False
 
 
+_TOKEN_TTL_SECONDS = 30 * 24 * 3600  # 30 jours de validité (tokens expirables)
+
+
 def _sign_email(email: str) -> str:
     if not _DASH_SECRET:
         raise HTTPException(status_code=503, detail="Dashboard non configuré : définissez DASH_SECRET côté serveur.")
-    return hmac.new(_DASH_SECRET.encode(), email.strip().lower().encode(), hashlib.sha256).hexdigest()
+    expires = int(time.time()) + _TOKEN_TTL_SECONDS
+    msg = f"{email.strip().lower()}:{expires}"
+    sig = hmac.new(_DASH_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
+    return f"{expires}.{sig}"
 
 
 def _verify_token(email: str, token: str) -> bool:
-    if not token:
+    if not token or not _DASH_SECRET:
         return False
-    return hmac.compare_digest(_sign_email(email), token)
+    try:
+        exp_str, sig = token.split(".", 1)
+        expires = int(exp_str)
+    except Exception:
+        return False
+    if expires < int(time.time()):
+        return False  # token expiré
+    msg = f"{email.strip().lower()}:{expires}"
+    expected = hmac.new(_DASH_SECRET.encode(), msg.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)
 
 
 def _require_dash_secret() -> None:
@@ -2439,9 +2454,15 @@ async def dashboard_save(req: DashboardSaveRequest):
 
 
 @app.get("/api/dashboard/scans")
-async def dashboard_scans(email: str, token: str):
+async def dashboard_scans(email: str, token: str = "", authorization: Optional[str] = Header(None)):
     _require_dash_secret()
-    if not _verify_token(email, token):
+    # Préfère le header Authorization: Bearer <token> (évite la fuite du token
+    # dans l'URL, les logs serveur et le header Referer).
+    header_token = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        header_token = authorization[7:].strip()
+    tk = header_token or token
+    if not _verify_token(email, tk):
         raise HTTPException(status_code=401, detail="Session invalide")
     scans = _load_scans_pg(email.lower())
     if scans is None:
