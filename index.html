@@ -153,11 +153,11 @@
             <div id="scan-progress-fill" class="scan-progress-bar-fill"></div>
           </div>
           <ul class="scan-steps-list">
-            <li class="scan-step-item" id="step-0"><i class="fas fa-circle-notch fa-spin"></i> 1. Robots.txt & WAF</li>
-            <li class="scan-step-item" id="step-1"><i class="fas fa-circle-notch fa-spin"></i> 2. JSON-LD Schema.org</li>
-            <li class="scan-step-item" id="step-2"><i class="fas fa-circle-notch fa-spin"></i> 3. Pureté & Tokens</li>
+            <li class="scan-step-item" id="step-0"><i class="fas fa-circle-notch fa-spin"></i> 1. Accès de ChatGPT à votre boutique</li>
+            <li class="scan-step-item" id="step-1"><i class="fas fa-circle-notch fa-spin"></i> 2. Lecture de vos données produit</li>
+            <li class="scan-step-item" id="step-2"><i class="fas fa-circle-notch fa-spin"></i> 3. Clarté de vos fiches</li>
             <li class="scan-step-item" id="step-3"><i class="fas fa-clock"></i> 4. Complétude de l'offre</li>
-            <li class="scan-step-item" id="step-4"><i class="fas fa-clock"></i> 5. Protocoles (llms.txt &amp; MCP)</li>
+            <li class="scan-step-item" id="step-4"><i class="fas fa-clock"></i> 5. Connexion aux moteurs IA</li>
           </ul>
         </div>
 
@@ -314,35 +314,35 @@
               <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
                 Détail des 5 Piliers d'Audit (Méthodologie PRD · 100% Déterministe)
               </span>
-              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Crawl 20% · Schema 25% · Tokens 20% · Complétude 20% · Protocoles 15%</span>
+              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Accès IA 20% · Données produit 25% · Clarté 20% · Complétude 20% · Connexion IA 15%</span>
             </div>
 
             <div class="pillars-mini-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">1. Crawl (20%)</div>
+                <div class="pillar-mini-title">1. Accès IA (20%)</div>
                 <div class="pillar-mini-score" id="pillar-score-crawl">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-crawl">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">2. Schema (25%)</div>
+                <div class="pillar-mini-title">2. Données produit (25%)</div>
                 <div class="pillar-mini-score" id="pillar-score-schema">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-schema">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">3. Tokens (20%)</div>
+                <div class="pillar-mini-title">3. Clarté (20%)</div>
                 <div class="pillar-mini-score" id="pillar-score-tokens">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-tokens">--</div>
               </div>
               <div class="pillar-mini-card">
                 <div class="pillar-mini-title" style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>4. Simulator (20%)</span>
+                  <span>4. Complétude (20%)</span>
                   <span id="pillar-gemini-badge" style="font-size: 0.68rem; font-weight: 600; color: var(--cyan-400);"><i class="fas fa-microchip"></i> IA Déterministe</span>
                 </div>
                 <div class="pillar-mini-score" id="pillar-score-sim">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-sim">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">5. Protocoles (15%)</div>
+                <div class="pillar-mini-title">5. Connexion IA (15%)</div>
                 <div class="pillar-mini-score" id="pillar-score-proto">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-proto">--</div>
               </div>
@@ -454,7 +454,7 @@
 <strong>ITEM_NAME:</strong> <span id="ai-inspect-name">Sonus NC-700 Matte Black</span>
 <strong>PRICE_RAW:</strong> <span id="ai-inspect-price">249.00 EUR (Devise non explicite dans JSON-LD)</span>
 <strong>STOCK_STATUS:</strong> <span id="ai-inspect-stock" class="ai-tag-missing">UNKNOWN (Bouton JS non exécuté)</span>
-<strong>SHIPPING_TERMS:</strong> <span id="ai-inspect-shipping" class="ai-tag-missing">MISSING (hasMerchantReturnPolicy absent)</span>
+<strong>SHIPPING_TERMS:</strong> <span id="ai-inspect-shipping" class="ai-tag-missing">MISSING (politique de retour absente)</span>
 
 <span class="hl-comment">&lt;!-- ANALYSE DU BRUIT SÉMANTIQUE (Scripts, trackers et bannières) --&gt;</span>
 &lt;script src="analytics-pixel.js"&gt;...&lt;/script&gt;
@@ -589,17 +589,17 @@
 
         <div class="report-pillars-title">Détail des 5 Piliers d'Évaluation</div>
         <table class="report-pillars">
-          <tr><th>Pilier</th><th>Poids</th><th>Score</th><th>Statut Technique</th></tr>
-          <tr><td>1. Crawl &amp; Bot Access</td><td>20%</td><td><b>85/100</b></td><td>Robots OK</td></tr>
-          <tr><td>2. Schema.org &amp; JSON-LD</td><td>25%</td><td><b>25/100</b></td><td>Aucun schéma Product</td></tr>
-          <tr><td>3. Pureté Sémantique &amp; Tokens</td><td>20%</td><td><b>100/100</b></td><td>359 tokens · fiche légère</td></tr>
+          <tr><th>Pilier</th><th>Poids</th><th>Score</th><th>Statut</th></tr>
+          <tr><td>1. Accès IA</td><td>20%</td><td><b>85/100</b></td><td>Accès OK</td></tr>
+          <tr><td>2. Données produit</td><td>25%</td><td><b>25/100</b></td><td>Données incomplètes</td></tr>
+          <tr><td>3. Clarté de la fiche</td><td>20%</td><td><b>100/100</b></td><td>Très claire</td></tr>
           <tr><td>4. Complétude de l'offre</td><td>20%</td><td><b>65/100</b></td><td>Risque moyen</td></tr>
-          <tr><td>5. Protocoles (llms.txt / MCP)</td><td>15%</td><td><b>5/100</b></td><td>Non configuré</td></tr>
+          <tr><td>5. Connexion aux moteurs IA</td><td>15%</td><td><b>5/100</b></td><td>Non connecté</td></tr>
         </table>
 
-        <div class="report-diag-title">Diagnostic de l'IA Acheteuse</div>
+        <div class="report-diag-title">Diagnostic de l'IA acheteuse</div>
         <div class="report-diag">
-          <b>Prix extrait :</b> 249.00 € · <b>Stock :</b> détecté · <b>Livraison :</b> non structurée · <b>Risque d'hallucination :</b> MOYEN
+          <b>Prix extrait :</b> 249.00 € · <b>Stock :</b> détecté · <b>Livraison :</b> non précisée · <b>Risque d'hallucination :</b> MOYEN
         </div>
 
         <div class="report-llms"># /.well-known/llms.txt
