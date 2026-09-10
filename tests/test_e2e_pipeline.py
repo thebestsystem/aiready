@@ -111,11 +111,11 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertIn('id="pillar-score-proto"', html)
 
         # Pondérations 20/25/20/20/15
-        self.assertIn("Crawl 20%", html)
-        self.assertIn("Schema 25%", html)
-        self.assertIn("Tokens 20%", html)
+        self.assertIn("Accès IA 20%", html)
+        self.assertIn("Données produit 25%", html)
+        self.assertIn("Clarté 20%", html)
         self.assertIn("Complétude 20%", html)
-        self.assertIn("Protocoles 15%", html)
+        self.assertIn("Connexion IA 15%", html)
 
         # Élimination de l'ancien 30/40/30
         self.assertNotIn("Pondération : Crawl 30% · Schema 40% · Tokens 30%", html)
@@ -143,7 +143,7 @@ class TestE2EPipeline(unittest.TestCase):
 
         server._get_gemini_client = lambda key=None: object()
         server.generate_gemini_content = mock_throw
-        res_quota = self.client.post("/api/gemini/simulate-question", json={"question": "Livraison ?"})
+        res_quota = self.client.post("/api/gemini/simulate-question", json={"question": "Livraison ?", "geminiApiKey": "test-key-123"})
         data_quota = res_quota.json()
         self.assertFalse(data_quota["geminiLive"])
         self.assertEqual(data_quota.get("fallbackReason"), "quota_exhausted")
@@ -224,7 +224,8 @@ class TestE2EPipeline(unittest.TestCase):
 
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp), \
              patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=fake_robots), \
-             patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms):
+             patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms), \
+             patch("server._has_active_subscription", new_callable=AsyncMock, return_value=True):
 
             ip_a = "192.168.1.100"
             limit = server._scan_limiter.limit  # 10 par défaut
@@ -233,7 +234,7 @@ class TestE2EPipeline(unittest.TestCase):
             for i in range(limit):
                 res = self.client.post(
                     "/api/scan",
-                    json={"url": "https://boutique-test.fr"},
+                    json={"url": "https://boutique-test.fr", "email": "sub@test.fr"},
                     headers={"X-Forwarded-For": ip_a}
                 )
                 self.assertEqual(res.status_code, 200, f"Requête {i+1} de l'IP {ip_a} devrait passer")

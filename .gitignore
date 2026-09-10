@@ -17,6 +17,10 @@ ENV/
 
 # Temporary test outputs & local database
 leads.csv
+scan_usage.json
+login_codes.json
+scans.json
+welcomed.json
 test_report.pdf
 *.pdf
 *.log
