@@ -697,18 +697,19 @@
             <li class="included"><i class="fas fa-check"></i> <strong>Rapports d'audit PDF 5 pages</strong> pour chaque scan</li>
             <li class="included"><i class="fas fa-clock"></i> <strong>2 500 scans</strong> / mois (quota bientôt)</li>
             <li class="included"><i class="fas fa-clock"></i> <strong>Scan en Masse (Batch)</strong> jusqu'à 500 URLs — bientôt</li>
-            <li class="included"><i class="fas fa-clock"></i> Marque Blanche (votre logo) & multi-comptes clients — bientôt</li>
+            <li class="included"><i class="fas fa-check"></i> <strong>Marque Blanche</strong> (votre logo) — inclus</li>
+            <li class="included"><i class="fas fa-clock"></i> Multi-comptes clients — bientôt</li>
             <li class="included"><i class="fas fa-check"></i> Support prioritaire & canal Slack partagé</li>
           </ul>
 
-          <a href="/agences" class="btn btn-secondary" style="width: 100%;">Découvrir l'offre Agence</a>
+          <a href="https://buy.stripe.com/4gM8wQa0te9cdQQ3hpco004" target="_blank" rel="noopener" class="btn btn-primary" style="width: 100%;">Souscrire — 199 €/mois (14 j d'essai)</a>
         </div>
 
       </div>
 
       <div style="text-align: center; margin-top: 1.25rem; color: var(--text-muted); font-size: 0.88rem;">
         <i class="fas fa-check-circle" style="color: var(--emerald-400);"></i>
-        Après votre paiement : redirection vers votre espace client → email de bienvenue → accès à votre tableau de bord d'audits. 14 jours d'essai, sans CB, résiliable en 1 clic.
+        Après votre paiement : redirection vers votre espace client → email de bienvenue → accès à votre tableau de bord d'audits. 14 jours d'essai, sans engagement, résiliable en 1 clic.
       </div>
 
     </div>
@@ -859,7 +860,7 @@
             </button>
           </div>
           <div id="gemini-live-indicator-sim" class="badge badge-cyan" style="font-size: 0.75rem;">
-            <span class="pulse-dot"></span> <span id="sim-model-label">Gemini 3.6 Flash</span>
+            <span class="pulse-dot"></span> <span id="sim-model-label">Mode Déterministe</span>
           </div>
         </div>
 
@@ -1057,7 +1058,7 @@
   <section class="section" style="text-align: center;">
     <div class="container">
       <h2 class="section-title">Prêt à être <span class="gradient-text">recommandé par les IA ?</span></h2>
-      <p style="color: var(--text-secondary); margin-top: 0.5rem;">À partir de <strong style="color: var(--text-primary);">49 €/mois</strong> — 14 jours d'essai, sans CB, résiliable en 1 clic.</p>
+      <p style="color: var(--text-secondary); margin-top: 0.5rem;">À partir de <strong style="color: var(--text-primary);">49 €/mois</strong> — 14 jours d'essai, sans engagement, résiliable en 1 clic.</p>
       <div style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
         <a href="#pricing" class="btn btn-primary btn-lg" style="font-size: 1rem; padding: 1rem 2rem;">
           <i class="fas fa-bolt"></i> Commencer l'essai gratuit
@@ -1094,7 +1095,7 @@
               <li><a href="#scanner">Scanner d'URL</a></li>
               <li><a href="#split-screen">Human vs AI</a></li>
               <li><a href="#pillars">5 Piliers d'Audit</a></li>
-              <li><a href="#simulator">Simulateur Gemini</a></li>
+              <li><a href="#simulator">Simulateur d'achat IA</a></li>
               <li><a href="#autofix">Générateur llms.txt</a></li>
             </ul>
           </div>
@@ -1201,67 +1202,6 @@
         </button>
       </div>
 
-    </div>
-  </div>
-
-  <!-- ======================================================================
-       12. GEMINI CONFIGURATION & STATUS MODAL
-       ====================================================================== -->
-  <div class="modal-overlay" id="gemini-modal">
-    <div class="modal-card" style="max-width: 520px;">
-      <button class="modal-close-btn" id="gemini-modal-close-x">&times;</button>
-      
-      <div>
-        <div style="display: flex; align-items: center; gap: 0.85rem; margin-bottom: 1.25rem;">
-          <div style="width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #4285F4, #34A853); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);">
-            <i class="fas fa-brain"></i>
-          </div>
-          <div>
-            <h3 style="font-size: 1.35rem; margin: 0; color: #fff;">Google Gemini 3.6 Flash</h3>
-            <span style="font-size: 0.82rem; color: var(--cyan-400);">Moteur d'IA officiel (google-genai)</span>
-          </div>
-        </div>
-
-        <p style="color: var(--text-secondary); font-size: 0.92rem; margin-bottom: 1.25rem; line-height: 1.55;">
-          AgentReady utilise le SDK officiel Google GenAI pour évaluer en temps réel la capacité des agents d'achat autonomes à finaliser un panier sur votre boutique.
-        </p>
-
-        <!-- Status Card -->
-        <div id="gemini-status-card" style="margin-bottom: 1.25rem; padding: 0.9rem 1.1rem; border-radius: 10px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-size: 0.85rem; color: var(--text-secondary);">État de la connexion :</span>
-          <span id="gemini-status-text" class="badge badge-blind"><span class="pulse-dot"></span> Vérification...</span>
-        </div>
-
-        <form id="gemini-key-form">
-          <div style="margin-bottom: 1.25rem;">
-            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 500;">
-              Clé API Google Gemini (Personnelle ou d'Équipe) :
-            </label>
-            <input 
-              type="password" 
-              id="gemini-key-input" 
-              placeholder="AIzaSy..." 
-              class="scanner-input" 
-              style="padding-left: 1rem; font-family: monospace; font-size: 0.85rem;"
-            >
-          </div>
-
-          <div style="display: flex; gap: 0.75rem;">
-            <button type="submit" class="btn btn-primary" id="btn-save-gemini-key" style="flex: 1; padding: 0.85rem;">
-              <i class="fas fa-check"></i> Sauvegarder & Tester
-            </button>
-            <button type="button" class="btn btn-secondary" id="btn-clear-gemini-key" style="padding: 0.85rem;">
-              Effacer
-            </button>
-          </div>
-        </form>
-
-        <div id="gemini-test-feedback" style="margin-top: 1rem; font-size: 0.85rem; display: none; padding: 0.75rem 1rem; border-radius: 8px;"></div>
-
-        <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem; line-height: 1.5;">
-          <i class="fas fa-key" style="color: var(--cyan-400);"></i> <strong>Alternative fichier .env :</strong> Vous pouvez coller votre clé dans <code>AIready/.env</code> : <code>GEMINI_API_KEY=AIzaSy...</code>
-        </div>
-      </div>
     </div>
   </div>
 

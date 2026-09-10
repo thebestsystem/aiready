@@ -15,9 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // 2. Setup onglets code snippets & simulateur Gemini
   initSimulatorTabs();
 
-  // 3. Setup Gemini Configuration Modal
-  initGeminiModal();
-
   // 4. Setup Auto-Fix Code Generator Tabs & Copy
   initCodeGenerator();
 
@@ -540,143 +537,11 @@ function initFaqAccordion() {
 }
 
 /* --------------------------------------------------------------------------
-   GEMINI CONFIGURATION & STATUS MODAL
-   -------------------------------------------------------------------------- */
-function initGeminiModal() {
-  const openBtn = document.getElementById('btn-open-gemini-modal');
-  const modal = document.getElementById('gemini-modal');
-  const closeBtn = document.getElementById('gemini-modal-close-x');
-  const form = document.getElementById('gemini-key-form');
-  const input = document.getElementById('gemini-key-input');
-  const clearBtn = document.getElementById('btn-clear-gemini-key');
-  const feedback = document.getElementById('gemini-test-feedback');
-  const navStatus = document.getElementById('gemini-nav-status');
-  const statusText = document.getElementById('gemini-status-text');
-
-  if (!modal) return;
-
-  const openModal = () => {
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    checkStatus();
-  };
-
-  const closeModal = () => {
-    modal.classList.remove('active');
-    document.body.style.overflow = '';
-  };
-
-  if (openBtn) openBtn.addEventListener('click', openModal);
-  if (closeBtn) closeBtn.addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
-  });
-
-  // Preload saved key
-  const savedKey = localStorage.getItem('agentready_gemini_key') || '';
-  if (input && savedKey) {
-    input.value = savedKey;
-  }
-
-  const checkStatus = async () => {
-    try {
-      const res = await fetch('/api/gemini/status');
-      if (res.ok) {
-        const data = await res.json();
-        const currentSavedKey = localStorage.getItem('agentready_gemini_key') || '';
-        const hasKey = Boolean(currentSavedKey || data.serverKeyConfigured);
-        if (hasKey) {
-          if (navStatus) navStatus.textContent = 'Gemini 3.6 Actif';
-          if (statusText) {
-            statusText.className = 'badge badge-ready';
-            statusText.innerHTML = '<span class="pulse-dot"></span> ' + (data.serverKeyConfigured ? 'Prêt (.env)' : 'Prêt (Clé locale)');
-          }
-        } else {
-          if (navStatus) navStatus.textContent = 'Gemini IA';
-          if (statusText) {
-            statusText.className = 'badge badge-blind';
-            statusText.innerHTML = '<span class="pulse-dot"></span> Mode Déterministe (Pas de clé)';
-          }
-        }
-      }
-    } catch (e) {
-      if (navStatus) navStatus.textContent = 'Gemini Hors-Ligne';
-      if (statusText) {
-        statusText.className = 'badge badge-friction';
-        statusText.textContent = 'Serveur injoignable';
-      }
-    }
-  };
-
-  // Check immediately on page load
-  checkStatus();
-
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const key = input ? input.value.trim() : '';
-      if (!key) {
-        feedback.style.display = 'block';
-        feedback.style.background = 'rgba(244, 63, 94, 0.15)';
-        feedback.style.color = 'var(--rose-400)';
-        feedback.innerHTML = '⚠️ Veuillez entrer une clé API Google Gemini valide.';
-        return;
-      }
-
-      feedback.style.display = 'block';
-      feedback.style.background = 'rgba(59, 130, 246, 0.15)';
-      feedback.style.color = 'var(--cyan-400)';
-      feedback.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Test de connexion à Gemini 3.6 Flash en cours...';
-
-      try {
-        const res = await fetch('/api/gemini/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ geminiApiKey: key })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          localStorage.setItem('agentready_gemini_key', key);
-          feedback.style.background = 'rgba(16, 185, 129, 0.15)';
-          feedback.style.color = 'var(--emerald-400)';
-          feedback.innerHTML = '✅ Connexion réussie avec Google Gemini (modèle <code>gemini-3.6-flash</code>) !';
-          checkStatus();
-        } else {
-          feedback.style.background = 'rgba(244, 63, 94, 0.15)';
-          feedback.style.color = 'var(--rose-400)';
-          feedback.innerHTML = `❌ Échec du test : ${data.error || 'Clé API non reconnue par Google GenAI'}`;
-        }
-      } catch (err) {
-        feedback.style.background = 'rgba(244, 63, 94, 0.15)';
-        feedback.style.color = 'var(--rose-400)';
-        feedback.innerHTML = `❌ Erreur réseau : impossible de joindre le serveur d'API.`;
-      }
-    });
-  }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      localStorage.removeItem('agentready_gemini_key');
-      if (input) input.value = '';
-      if (feedback) {
-        feedback.style.display = 'block';
-        feedback.style.background = 'rgba(245, 158, 11, 0.15)';
-        feedback.style.color = 'var(--amber-400)';
-        feedback.textContent = 'Clé locale effacée.';
-      }
-      checkStatus();
-    });
-  }
-}
-
-/* --------------------------------------------------------------------------
    MOBILE NAVIGATION TOGGLE (Accessible with Escape & Outside Click)
    -------------------------------------------------------------------------- */
 function initMobileNav() {
   const toggleBtn = document.getElementById('btn-nav-toggle');
   const navMenu = document.getElementById('main-nav-menu');
-  const geminiModal = document.getElementById('gemini-modal');
-  const mobileGeminiBtn = document.getElementById('btn-open-gemini-modal-mobile');
 
   const closeMenu = () => {
     if (!navMenu || !navMenu.classList.contains('mobile-open')) return;
@@ -731,11 +596,4 @@ function initMobileNav() {
     });
   }
 
-  if (mobileGeminiBtn && geminiModal) {
-    mobileGeminiBtn.addEventListener('click', () => {
-      geminiModal.classList.add('active');
-      document.body.style.overflow = 'hidden';
-      closeMenu();
-    });
-  }
 }

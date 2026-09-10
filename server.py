@@ -1946,10 +1946,11 @@ def gemini_status():
 
 @app.post("/api/gemini/test", dependencies=[Depends(_sim_rate_limit)])
 async def test_gemini_key(payload: Dict[str, str]):
-    client = _get_gemini_client(payload.get("geminiApiKey"))
+    user_key = (payload.get("geminiApiKey") or "").strip()
+    if not user_key:
+        return {"ok": False, "error": "Aucune clé API fournie"}
+    client = _get_gemini_client(user_key)
     if not client:
-        if not get_gemini_api_key(payload.get("geminiApiKey")):
-            return {"ok": False, "error": "Aucune clé API fournie"}
         return {"ok": False, "error": "google-genai n'est pas installé ou indisponible"}
     try:
         res, model_used = await asyncio.to_thread(
@@ -1965,7 +1966,8 @@ async def test_gemini_key(payload: Dict[str, str]):
 
 @app.post("/api/gemini/simulate-question", dependencies=[Depends(_sim_rate_limit)])
 async def simulate_question(req: SimQuestionRequest):
-    client = _get_gemini_client(req.geminiApiKey)
+    user_key = (req.geminiApiKey or "").strip()
+    client = _get_gemini_client(user_key) if user_key else None
     prod = req.productData or {}
     prod_name = prod.get("name") or "Produit E-commerce"
     prod_price = f"{prod.get('price', 'Inconnu')} {prod.get('currency', 'EUR')}"
