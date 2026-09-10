@@ -2059,6 +2059,20 @@ class PortalRequest(BaseModel):
     email: str
 
 
+class LoginCodeRequest(BaseModel):
+    email: str
+
+
+class VerifyLoginCodeRequest(BaseModel):
+    email: str
+    code: str
+
+
+class PortalWithTokenRequest(BaseModel):
+    email: str
+    token: str
+
+
 class DashboardSaveRequest(BaseModel):
     email: str
     token: str
@@ -2139,11 +2153,13 @@ _PORTAL_BASE_URL = os.getenv("BASE_URL", "https://aiready-production-a6c0.up.rai
 
 
 @app.post("/api/portal-session", dependencies=[Depends(_auth_rate_limit)])
-async def create_portal_session(req: PortalRequest):
+async def create_portal_session(req: PortalWithTokenRequest):
     """Génère une session du Stripe Customer Portal (gestion d'abonnement, carte, annulation)."""
     email = (req.email or "").strip()
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Email invalide")
+    if not _verify_token(email, req.token):
+        raise HTTPException(status_code=401, detail="Session invalide — reconnectez-vous.")
     stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
     if not stripe_key:
         raise HTTPException(status_code=503, detail="Paiement non configuré")
@@ -2369,6 +2385,135 @@ def _add_welcomed_pg(email: str) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Magic link : code de connexion à usage unique (ferme le trou "email = mot de passe")
+# ---------------------------------------------------------------------------
+from datetime import timedelta
+import secrets
+
+_LOGIN_CODE_TTL_SECONDS = 15 * 60  # 15 minutes
+_LOGIN_CODES_PATH = os.path.join(_base_dir, "login_codes.json")
+_RESEND_API_URL = "https://api.resend.com/emails"
+
+
+def _generate_login_code() -> str:
+    return f"{secrets.randbelow(1000000):06d}"
+
+
+_login_codes_table_ready = False
+
+
+def _ensure_login_codes_table(conn) -> None:
+    global _login_codes_table_ready
+    if _login_codes_table_ready:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS login_codes ("
+            " id SERIAL PRIMARY KEY,"
+            " email VARCHAR(255) NOT NULL,"
+            " code VARCHAR(16) NOT NULL,"
+            " expires_at TIMESTAMPTZ NOT NULL,"
+            " used BOOLEAN DEFAULT FALSE,"
+            " created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
+            ");"
+            "CREATE INDEX IF NOT EXISTS idx_login_codes_email ON login_codes(email);"
+        )
+    conn.commit()
+    _login_codes_table_ready = True
+
+
+def _save_login_code(email: str, code: str) -> None:
+    expires = datetime.now(timezone.utc) + timedelta(seconds=_LOGIN_CODE_TTL_SECONDS)
+    conn_str = _pg_conn_str()
+    if conn_str and _PSYCOPG:
+        try:
+            with _pg_connect(conn_str) as conn:
+                _ensure_login_codes_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO login_codes (email, code, expires_at) VALUES (%s, %s, %s)",
+                        (email, code, expires),
+                    )
+                conn.commit()
+            return
+        except Exception as e:
+            _logger.warning("login_code PG save failed: %s", e)
+    # Repli JSON
+    data = _load_json(_LOGIN_CODES_PATH) or {}
+    data[email] = {"code": code, "expires_at": expires.isoformat(), "used": False}
+    _save_json(_LOGIN_CODES_PATH, data)
+
+
+def _verify_login_code(email: str, code: str) -> bool:
+    now = datetime.now(timezone.utc)
+    conn_str = _pg_conn_str()
+    if conn_str and _PSYCOPG:
+        try:
+            with _pg_connect(conn_str) as conn:
+                _ensure_login_codes_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id, expires_at, used FROM login_codes "
+                        "WHERE email = %s AND code = %s ORDER BY id DESC LIMIT 1",
+                        (email, code),
+                    )
+                    row = cur.fetchone()
+                if not row:
+                    return False
+                cid, expires_at, used = row
+                if used:
+                    return False
+                if expires_at is not None and expires_at.replace(tzinfo=timezone.utc) < now:
+                    return False
+                with conn.cursor() as cur:
+                    cur.execute("UPDATE login_codes SET used = TRUE WHERE id = %s", (cid,))
+                conn.commit()
+            return True
+        except Exception as e:
+            _logger.warning("login_code PG verify failed: %s", e)
+    # Repli JSON
+    data = _load_json(_LOGIN_CODES_PATH) or {}
+    rec = data.get(email)
+    if not rec or rec.get("used"):
+        return False
+    try:
+        if datetime.fromisoformat(rec["expires_at"]) < now:
+            return False
+    except Exception:
+        return False
+    if not hmac.compare_digest(str(rec.get("code")), str(code)):
+        return False
+    rec["used"] = True
+    _save_json(_LOGIN_CODES_PATH, data)
+    return True
+
+
+def _send_login_code(email: str, code: str) -> bool:
+    key = os.getenv("RESEND_API_KEY")
+    from_addr = os.getenv("RESEND_FROM") or "AgentReady <audit@8dev.net>"
+    if not key:
+        _logger.info("Code de connexion (dev, pas de Resend) pour %s : %s", email, code)
+        return False
+    try:
+        html = (
+            "<p>Bonjour,</p>"
+            "<p>Votre code de connexion AgentReady :</p>"
+            f"<p style='font-size:28px;font-weight:bold;letter-spacing:6px;'>{code}</p>"
+            "<p>Valable 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>"
+        )
+        r = httpx.post(
+            _RESEND_API_URL,
+            json={"from": from_addr, "to": [email], "subject": f"Votre code de connexion AgentReady : {code}", "html": html},
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            timeout=8.0,
+        )
+        return r.status_code in (200, 201, 202)
+    except Exception as e:
+        _logger.warning("Envoi code de connexion échoué : %s", e)
+        return False
+
+
 _TOKEN_TTL_SECONDS = 30 * 24 * 3600  # 30 jours de validité (tokens expirables)
 
 
@@ -2429,12 +2574,26 @@ async def _has_active_subscription(email: str) -> bool:
         return False
 
 
+@app.post("/api/dashboard/request-code", dependencies=[Depends(_auth_rate_limit)])
+async def request_login_code(req: LoginCodeRequest):
+    email = (req.email or "").strip()
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="Email invalide")
+    code = _generate_login_code()
+    _save_login_code(email, code)
+    _send_login_code(email, code)
+    # Ne révèle pas si un compte existe (anti-énumération).
+    return {"ok": True, "message": "Si un compte existe pour cet email, un code de connexion a été envoyé."}
+
+
 @app.post("/api/dashboard/login", dependencies=[Depends(_auth_rate_limit)])
-async def dashboard_login(req: PortalRequest):
+async def dashboard_login(req: VerifyLoginCodeRequest):
     _require_dash_secret()
     email = (req.email or "").strip()
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="Email invalide")
+    if not _verify_login_code(email, req.code):
+        raise HTTPException(status_code=401, detail="Code de connexion invalide ou expiré.")
     if not await _has_active_subscription(email):
         raise HTTPException(status_code=403, detail="Aucun abonnement actif pour cet email. Vérifiez l'adresse utilisée lors du paiement.")
     token = _sign_email(email)

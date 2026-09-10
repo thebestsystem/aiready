@@ -45,8 +45,12 @@
             class="scanner-input"
             style="padding-left: 1rem; font-size: 0.95rem;"
           >
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
-            <i class="fas fa-arrow-right"></i> Accéder à mon espace
+          <div id="portal-code-wrap" style="display: none; margin-top: 0.75rem;">
+            <label style="display: block; text-align: left; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem; font-weight: 600;">Code reçu par email (6 chiffres)</label>
+            <input type="text" id="portal-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" class="scanner-input" style="padding-left: 1rem; font-size: 0.95rem; letter-spacing: 4px;">
+          </div>
+          <button type="submit" id="portal-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
+            <i class="fas fa-arrow-right"></i> Recevoir mon code
           </button>
         </form>
         <div id="portal-feedback" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #dc2626; text-align: left;"></div>
@@ -62,32 +66,55 @@
     var form = document.getElementById('portal-form');
     if (!form) return;
     var emailInput = document.getElementById('portal-email');
+    var codeInput = document.getElementById('portal-code');
+    var codeWrap = document.getElementById('portal-code-wrap');
+    var btn = document.getElementById('portal-btn');
     var feedback = document.getElementById('portal-feedback');
 
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       var email = emailInput.value.trim();
       if (!email) return;
-
-      var btn = form.querySelector('button[type="submit"]');
+      var code = codeInput ? codeInput.value.trim() : '';
       var orig = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification…';
       feedback.style.display = 'none';
 
       try {
-        var res = await fetch('/api/portal-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email })
-        });
-        var data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.detail || 'Erreur inattendue');
+        if (!code) {
+          // Étape 1 : demander le code
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi du code…';
+          var r0 = await fetch('/api/dashboard/request-code', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email })
+          });
+          var d0 = await r0.json();
+          if (!r0.ok) throw new Error(d0.detail || 'Erreur');
+          if (codeWrap) codeWrap.style.display = 'block';
+          feedback.textContent = 'Code envoyé à ' + email + '. Valable 15 minutes.';
+          feedback.style.color = '#10b981';
+          feedback.style.display = 'block';
+          btn.innerHTML = '<i class="fas fa-check"></i> Accéder à mon espace';
+          if (codeInput) codeInput.focus();
+          btn.disabled = false;
+          return;
         }
-        window.location.href = data.url;
+        // Étape 2 : vérifier le code -> token
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification…';
+        var r1 = await fetch('/api/dashboard/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, code: code })
+        });
+        var d1 = await r1.json();
+        if (!r1.ok) throw new Error(d1.detail || 'Erreur');
+        // Étape 3 : ouvrir le portail avec le token
+        var r2 = await fetch('/api/portal-session', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email, token: d1.token })
+        });
+        var d2 = await r2.json();
+        if (!r2.ok) throw new Error(d2.detail || 'Erreur');
+        window.location.href = d2.url;
       } catch (err) {
         feedback.textContent = err.message;
+        feedback.style.color = '#dc2626';
         feedback.style.display = 'block';
         btn.disabled = false;
         btn.innerHTML = orig;

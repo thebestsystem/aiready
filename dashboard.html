@@ -41,13 +41,17 @@
         <form id="login-form">
           <label style="display: block; text-align: left; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem; font-weight: 600;">Votre email (celui du paiement)</label>
           <input type="email" id="login-email" required placeholder="vous@votre-entreprise.com" class="scanner-input" style="padding-left: 1rem; font-size: 0.95rem;">
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
-            <i class="fas fa-arrow-right"></i> Se connecter
+          <div id="login-code-wrap" style="display: none; margin-top: 0.75rem;">
+            <label style="display: block; text-align: left; font-size: 0.85rem; color: #475569; margin-bottom: 0.5rem; font-weight: 600;">Code reçu par email (6 chiffres)</label>
+            <input type="text" id="login-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" class="scanner-input" style="padding-left: 1rem; font-size: 0.95rem; letter-spacing: 4px;">
+          </div>
+          <button type="submit" id="login-btn" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.9rem; font-size: 1rem;">
+            <i class="fas fa-arrow-right"></i> Recevoir mon code
           </button>
         </form>
         <div id="login-feedback" style="display: none; margin-top: 1rem; font-size: 0.85rem; color: #dc2626; text-align: left;"></div>
         <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem; text-align: left;">
-          <i class="fas fa-shield-alt"></i> Aucun mot de passe : on vérifie simplement votre abonnement actif.
+          <i class="fas fa-shield-alt"></i> Aucun mot de passe : un code de connexion vous est envoyé par email.
         </p>
       </div>
     </div>
@@ -87,6 +91,9 @@
     var dashView = document.getElementById('dash-view');
     var loginForm = document.getElementById('login-form');
     var loginEmail = document.getElementById('login-email');
+    var loginCode = document.getElementById('login-code');
+    var loginCodeWrap = document.getElementById('login-code-wrap');
+    var loginBtn = document.getElementById('login-btn');
     var loginFeedback = document.getElementById('login-feedback');
     var dashName = document.getElementById('dash-name');
     var logoutBtn = document.getElementById('logout-btn');
@@ -147,15 +154,46 @@
       e.preventDefault();
       var email = loginEmail.value.trim();
       if (!email) return;
-      var btn = loginForm.querySelector('button[type="submit"]');
+      var code = loginCode ? loginCode.value.trim() : '';
+      var btn = loginBtn || loginForm.querySelector('button[type="submit"]');
       var orig = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification…';
       loginFeedback.style.display = 'none';
+
+      if (!code) {
+        // Étape 1 : demander le code
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi du code…';
+        fetch('/api/dashboard/request-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) throw new Error(res.d.detail || 'Erreur');
+            if (loginCodeWrap) loginCodeWrap.style.display = 'block';
+            loginFeedback.textContent = 'Code envoyé à ' + email + '. Valable 15 minutes.';
+            loginFeedback.style.color = '#10b981';
+            loginFeedback.style.display = 'block';
+            btn.innerHTML = '<i class="fas fa-check"></i> Se connecter';
+            if (loginCode) loginCode.focus();
+          })
+          .catch(function (err) {
+            loginFeedback.textContent = err.message;
+            loginFeedback.style.display = 'block';
+          })
+          .finally(function () {
+            btn.disabled = false;
+            if (btn.innerHTML.indexOf('Se connecter') === -1) btn.innerHTML = orig;
+          });
+        return;
+      }
+
+      // Étape 2 : vérifier le code
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion…';
       fetch('/api/dashboard/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email })
+        body: JSON.stringify({ email: email, code: code })
       }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
           if (!res.ok) throw new Error(res.d.detail || 'Erreur');
@@ -165,6 +203,7 @@
         })
         .catch(function (err) {
           loginFeedback.textContent = err.message;
+          loginFeedback.style.color = '#dc2626';
           loginFeedback.style.display = 'block';
         })
         .finally(function () {
