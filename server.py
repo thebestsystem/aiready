@@ -1946,6 +1946,7 @@ async def scan_url(req: ScanRequest, request: Request):
 _BATCH_MAX_URLS = 500
 _BATCH_CONCURRENCY = 8
 _batch_jobs: Dict[str, Dict[str, Any]] = {}
+_batch_tasks: set = set()  # références fortes aux tasks asyncio (anti-GC du fire-and-forget)
 
 
 class BatchScanRequest(BaseModel):
@@ -2021,7 +2022,9 @@ async def scan_batch(req: BatchScanRequest):
         raise HTTPException(status_code=400, detail="Aucune URL valide fournie.")
 
     job_id = _batch_job_new(len(urls))
-    asyncio.create_task(_run_batch(job_id, urls))
+    _task = asyncio.create_task(_run_batch(job_id, urls))
+    _batch_tasks.add(_task)
+    _task.add_done_callback(_batch_tasks.discard)
     return {"job_id": job_id, "total": len(urls), "status": "running"}
 
 
