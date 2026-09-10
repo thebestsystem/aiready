@@ -1413,19 +1413,9 @@ def extract_stock_from_html(soup: BeautifulSoup) -> Optional[bool]:
         return False
     return None
 
-@app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
-async def scan_url(req: ScanRequest, request: Request):
-    url = normalize_url(req.url)  # valide & normalise AVANT tout fetch (levée 400 sur URL invalide)
-    # Quota serveur : email fourni → abonnement actif requis au-delà de la limite gratuite.
-    # Sans email (scan anonyme), on clé le quota par IP client : sinon le quota serait
-    # contournable en omettant simplement l'email (le paywall gratuit n'est alors pas servi).
-    email = (req.email or "").strip().lower()
-    if email:
-        if not await _has_active_subscription(email):
-            if not _scan_quota_allowed(email):
-                raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
-    elif not _scan_quota_allowed(f"ip:{_get_client_ip(request)}"):
-        raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
+
+async def _run_scan(url: str) -> AuditResult:
+
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split("/")[0]
 
@@ -1934,6 +1924,142 @@ async def scan_url(req: ScanRequest, request: Request):
         geminiLive=False,
         isProductPage=prod_data.get("is_product_page", True)
     )
+
+@app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
+async def scan_url(req: ScanRequest, request: Request):
+    url = normalize_url(req.url)  # valide & normalise AVANT tout fetch (levée 400 sur URL invalide)
+    # Quota serveur : email fourni → abonnement actif requis au-delà de la limite gratuite.
+    # Sans email (scan anonyme), on clé le quota par IP client : sinon le quota serait
+    # contournable en omettant simplement l'email (le paywall gratuit n'est alors pas servi).
+    email = (req.email or "").strip().lower()
+    if email:
+        if not await _has_active_subscription(email):
+            if not _scan_quota_allowed(email):
+                raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
+    elif not _scan_quota_allowed(f"ip:{_get_client_ip(request)}"):
+        raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
+    return await _run_scan(url)
+
+# ==========================================================================
+# SCAN EN MASSE (BATCH) — offre Agency (fire-and-poll, jobs en mémoire)
+# ==========================================================================
+_BATCH_MAX_URLS = 500
+_BATCH_CONCURRENCY = 8
+_batch_jobs: Dict[str, Dict[str, Any]] = {}
+
+
+class BatchScanRequest(BaseModel):
+    urls: List[str]
+    email: Optional[str] = None
+
+
+def _batch_job_new(total: int) -> str:
+    """Crée un job batch en mémoire et retourne son id (gardé simple, mono-process)."""
+    import secrets as _secrets
+    job_id = _secrets.token_hex(8)
+    _batch_jobs[job_id] = {
+        "status": "running",
+        "total": total,
+        "done": 0,
+        "results": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # Garde-fou mémoire : évite l'accumulation infinie de jobs.
+    if len(_batch_jobs) > 100:
+        oldest = sorted(_batch_jobs, key=lambda k: _batch_jobs[k]["created_at"])[0]
+        _batch_jobs.pop(oldest, None)
+    return job_id
+
+
+async def _run_batch(job_id: str, urls: List[str]) -> None:
+    """Scanne une liste d'URLs en parallèle borné et remplit le job en mémoire."""
+    job = _batch_jobs.get(job_id)
+    if not job:
+        return
+    sem = asyncio.Semaphore(_BATCH_CONCURRENCY)
+
+    async def scan_one(u: str) -> Dict[str, Any]:
+        async with sem:
+            try:
+                result = await _run_scan(u)
+                return {"url": u, "ok": True, "result": result.model_dump()}
+            except HTTPException as e:
+                return {"url": u, "ok": False, "error": e.detail}
+            except Exception as e:  # noqa: BLE001
+                return {"url": u, "ok": False, "error": str(e)}
+            finally:
+                job["done"] += 1
+
+    results = await asyncio.gather(*(scan_one(u) for u in urls))
+    job["results"] = results
+    job["done"] = len(urls)
+    job["status"] = "done"
+    job["finished_at"] = datetime.now(timezone.utc).isoformat()
+
+
+@app.post("/api/scan-batch", dependencies=[Depends(_scan_rate_limit)])
+async def scan_batch(req: BatchScanRequest):
+    """Lance un scan en masse (offre Agency). Renvoie un job_id à poller."""
+    email = (req.email or "").strip().lower()
+    if not email or not validate_email(email):
+        raise HTTPException(status_code=400, detail="Un email valide est requis pour le scan en masse.")
+    if not await _has_active_subscription(email):
+        raise HTTPException(status_code=402, detail="Le scan en masse nécessite un abonnement Agency actif (199 €/mois).")
+
+    urls: List[str] = []
+    seen = set()
+    for raw in req.urls:
+        try:
+            nu = normalize_url(raw)
+        except HTTPException:
+            continue  # URL invalide ignorée
+        if nu not in seen:
+            seen.add(nu)
+            urls.append(nu)
+    urls = urls[:_BATCH_MAX_URLS]
+    if not urls:
+        raise HTTPException(status_code=400, detail="Aucune URL valide fournie.")
+
+    job_id = _batch_job_new(len(urls))
+    asyncio.create_task(_run_batch(job_id, urls))
+    return {"job_id": job_id, "total": len(urls), "status": "running"}
+
+
+@app.get("/api/scan-batch/{job_id}")
+def scan_batch_status(job_id: str):
+    """Récupère l'état et les résultats d'un job batch."""
+    job = _batch_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job introuvable ou expiré.")
+    return job
+
+
+@app.get("/api/scan-batch/{job_id}/csv")
+def scan_batch_csv(job_id: str):
+    """Exporte les résultats d'un job batch terminé en CSV."""
+    import csv as _csv
+    import io as _io
+    job = _batch_jobs.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job introuvable ou expiré.")
+    if job["status"] != "done":
+        raise HTTPException(status_code=409, detail="Job toujours en cours — réessayez une fois terminé.")
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["URL", "Statut", "Score", "Produit", "Risque hallucination"])
+    for r in job["results"]:
+        if r.get("ok"):
+            res = r["result"] or {}
+            av = res.get("aiView") or {}
+            w.writerow([r["url"], "OK", res.get("score", ""), res.get("name", ""), av.get("hallucinationRisk", "")])
+        else:
+            w.writerow([r["url"], "ERREUR", "", "", r.get("error", "")])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=audit-batch-{job_id}.csv"},
+    )
+
 
 class SimQuestionRequest(BaseModel):
     question: str

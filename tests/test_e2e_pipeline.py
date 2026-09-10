@@ -1174,6 +1174,54 @@ Disallow: /api/v1/trebuchet
             self.assertEqual(res_pdf.headers.get("content-type"), "application/pdf")
             self.assertTrue(res_pdf.content.startswith(b"%PDF-"))
 
+    def test_38_scan_batch_fire_and_poll(self):
+        """Étape 7 : Scan en masse (batch) — fire-and-poll, dédup, agrégation, CSV."""
+        import time as _time
+
+        class _FakeResult:
+            def model_dump(self):
+                return {"score": 80, "name": "Produit Test", "aiView": {"hallucinationRisk": "FAIBLE"}}
+
+        with patch("server._has_active_subscription", new_callable=AsyncMock, return_value=True), \
+             patch("server._run_scan", new_callable=AsyncMock, return_value=_FakeResult()):
+            # 1. Lancement : 3 URLs dont 1 doublon → 2 uniques après dédup
+            res = self.client.post("/api/scan-batch", json={
+                "email": "agency@test.fr",
+                "urls": ["https://a.fr/produit", "https://b.fr/produit", "https://a.fr/produit"]
+            })
+            self.assertEqual(res.status_code, 200)
+            job_id = res.json()["job_id"]
+            self.assertEqual(res.json()["total"], 2)
+
+            # 2. Poll jusqu'à done
+            status = None
+            for _ in range(100):
+                status = self.client.get(f"/api/scan-batch/{job_id}").json()
+                if status["status"] == "done":
+                    break
+                _time.sleep(0.05)
+            self.assertEqual(status["status"], "done")
+            self.assertEqual(status["done"], 2)
+            self.assertEqual(len(status["results"]), 2)
+            self.assertTrue(all(r["ok"] for r in status["results"]))
+            self.assertEqual(status["results"][0]["result"]["name"], "Produit Test")
+
+            # 3. Export CSV
+            res_csv = self.client.get(f"/api/scan-batch/{job_id}/csv")
+            self.assertEqual(res_csv.status_code, 200)
+            self.assertIn("Produit Test", res_csv.text)
+            self.assertIn("https://a.fr/produit", res_csv.text)
+
+        # 4. Sans abonnement → 402
+        with patch("server._has_active_subscription", new_callable=AsyncMock, return_value=False):
+            res = self.client.post("/api/scan-batch", json={
+                "email": "x@y.fr", "urls": ["https://a.fr/produit"]
+            })
+            self.assertEqual(res.status_code, 402)
+
+        # 5. Job inexistant → 404
+        self.assertEqual(self.client.get("/api/scan-batch/inexistant").status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
