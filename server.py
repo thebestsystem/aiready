@@ -2022,12 +2022,12 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
                 "fallbackReason": "quota_exhausted" if is_quota else "service_unavailable",
                 "standardResponse": {
                     "agentStatus": "⚠️ Risque d'Hallucination",
-                    "response": f"Je n'ai pas pu confirmer de manière certaine cette information pour \"{prod_name}\" car le code HTML de la boutique ne fournit pas de microdonnées JSON-LD explicites.",
+                    "response": f"Je n'ai pas pu confirmer de manière certaine cette information pour \"{prod_name}\" car la boutique n'affiche pas clairement cette information sur sa fiche produit.",
                     "verdict": "Perte de conversion probable ou renvoi vers un concurrent (Amazon, Fnac)."
                 },
                 "agentReadyResponse": {
                     "agentStatus": "✅ Mode Déterministe Certifié (Quota live saturé)" if is_quota else "✅ 100% Déterministe (Protocole AgentReady)",
-                    "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont validés et certifiés via Schema.org et le manifeste llms.txt.",
+                    "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont clairement renseignés sur la fiche.",
                     "verdict": "Panier validé et confirmation de commande autonome."
                 },
                 "model": f"{GEMINI_PRIMARY_MODEL} (Repli Déterministe)" if is_quota else "Mode déterministe"
@@ -2038,12 +2038,12 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
         "geminiLive": False,
         "standardResponse": {
             "agentStatus": "⚠️ Risque d'Hallucination",
-            "response": f"Je n'ai pas pu confirmer de manière certaine cette information pour \"{prod_name}\" car le code HTML de la boutique ne fournit pas de microdonnées JSON-LD explicites.",
+            "response": f"Je n'ai pas pu confirmer de manière certaine cette information pour \"{prod_name}\" car la boutique n'affiche pas clairement cette information sur sa fiche produit.",
             "verdict": "Perte de conversion probable ou renvoi vers un concurrent (Amazon, Fnac)."
         },
         "agentReadyResponse": {
             "agentStatus": "✅ Mode Déterministe Certifié (Zéro Clé Requise)",
-            "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont validés et certifiés via Schema.org et le manifeste llms.txt.",
+            "response": f"Information certifiée pour \"{prod_name}\" : les spécifications, le prix ({prod_price}) et les conditions d'expédition sont clairement renseignés sur la fiche.",
             "verdict": "Panier validé et confirmation de commande autonome."
         },
         "model": "Mode Déterministe Certifié (Zéro Clé Requise)"
