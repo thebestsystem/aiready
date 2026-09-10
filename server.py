@@ -264,6 +264,8 @@ SCAN_FETCH_TIMEOUT_SECONDS = _int_env_clamped("SCAN_FETCH_TIMEOUT_SECONDS", "12"
 # Clamp : jamais < 100 Ko. Comportement : si le serveur annonce un Content-Length > borne
 # -> HTTP 413 ; sinon la lecture est tronquée à cette borne (jamais plus stocké).
 SCAN_MAX_RESPONSE_BYTES = _int_env_clamped("SCAN_MAX_RESPONSE_BYTES", "2000000", 100_000, 10**12)
+# Taille max (octets) d'une image proxifiée (/api/proxy-image) — anti-DoS mémoire.
+_PROXY_MAX_IMAGE_BYTES = _int_env_clamped("PROXY_MAX_IMAGE_BYTES", str(8 * 1024 * 1024), 1024, 100 * 1024 * 1024)
 
 
 def _enforce_rate_limit(request: Request, limiter: _SlidingWindowRateLimiter, endpoint_name: str) -> None:
@@ -1411,13 +1413,18 @@ def extract_stock_from_html(soup: BeautifulSoup) -> Optional[bool]:
     return None
 
 @app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
-async def scan_url(req: ScanRequest):
+async def scan_url(req: ScanRequest, request: Request):
     url = normalize_url(req.url)  # valide & normalise AVANT tout fetch (levée 400 sur URL invalide)
-    # Quota serveur : email fourni → abonnement actif requis au-delà de la limite gratuite
+    # Quota serveur : email fourni → abonnement actif requis au-delà de la limite gratuite.
+    # Sans email (scan anonyme), on clé le quota par IP client : sinon le quota serait
+    # contournable en omettant simplement l'email (le paywall gratuit n'est alors pas servi).
     email = (req.email or "").strip().lower()
-    if email and not await _has_active_subscription(email):
-        if not _scan_quota_allowed(email):
-            raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
+    if email:
+        if not await _has_active_subscription(email):
+            if not _scan_quota_allowed(email):
+                raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
+    elif not _scan_quota_allowed(f"ip:{_get_client_ip(request)}"):
+        raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split("/")[0]
 
@@ -2113,7 +2120,8 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     name = data.get("name", "Produit")
     score = data.get("score", 50)
     status_label = data.get("statusLabel", "Audit")
-    risk = data.get("aiView", {}).get("hallucinationRisk", "MOYEN")
+    _ai_view = data.get("aiView") or {}
+    risk = _ai_view.get("hallucinationRisk", "MOYEN")
 
     # 1. Sauvegarder de façon résiliente le prospect (Postgres + Slack + Backup CSV)
     save_lead(email, domain, name, score, status_label, risk, source="pdf_modal")
@@ -2151,7 +2159,7 @@ def process_email_sequence(token: str = ""):
     expected = (os.getenv("CRON_TOKEN") or "").strip()
     if not expected:
         return {"ok": False, "reason": "cron_token_not_configured", "sent": 0}
-    if token != expected:
+    if not hmac.compare_digest(token, expected):
         raise HTTPException(status_code=403, detail="Accès refusé")
     return process_sequence()
 
@@ -2714,7 +2722,7 @@ def process_payment_welcome(token: str = ""):
     expected = (os.getenv("CRON_TOKEN") or "").strip()
     if not expected:
         return {"ok": False, "reason": "cron_token_not_configured", "sent": 0}
-    if token != expected:
+    if not hmac.compare_digest(token, expected):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
@@ -2792,11 +2800,20 @@ async def proxy_image(url: str):
             resp = await client.get(url)
             if resp.status_code != 200:
                 raise HTTPException(status_code=resp.status_code, detail="Image inaccessible")
-            content_type = resp.headers.get("content-type", "image/jpeg")
+            content_type = resp.headers.get("content-type", "").lower()
             if not content_type.startswith("image/"):
-                content_type = "image/jpeg"
+                raise HTTPException(status_code=415, detail="URL non image")
+            # Anti-DoS : borne de taille (413 si Content-Length annoncé trop grand, sinon lecture tronquée).
+            if "content-length" in resp.headers:
+                try:
+                    declared = int(resp.headers["content-length"])
+                except ValueError:
+                    declared = 0
+                if declared > _PROXY_MAX_IMAGE_BYTES:
+                    raise HTTPException(status_code=413, detail="Image trop volumineuse")
+            body = await _read_page_bounded(resp, _PROXY_MAX_IMAGE_BYTES)
             return Response(
-                content=resp.content,
+                content=body,
                 media_type=content_type,
                 headers={
                     "Cache-Control": "public, max-age=86400",
@@ -2899,11 +2916,18 @@ def serve_favicon():
     </svg>"""
     return Response(content=svg_icon, media_type="image/svg+xml")
 
+# Documents exposés publiquement sur le site (les deux sont liés depuis le README).
+# OUTBOUND_AGENCES.md (kit de prospection) et ROADMAP-MVP.md (ce qui n'est pas encore
+# construit) restent internes : ne jamais les servir à une URL énumérable.
+_PUBLIC_DOCS = {"MARKET_ANALYSIS.md", "PRD.md"}
+
 @app.get("/docs/{filename}")
 def serve_doc(filename: str):
     safe_filename = os.path.basename(filename)
+    if safe_filename not in _PUBLIC_DOCS:
+        raise HTTPException(status_code=404, detail=f"Document '{safe_filename}' introuvable")
     doc_path = os.path.join(_base_dir, "docs", safe_filename)
-    if not os.path.exists(doc_path) or not safe_filename.endswith((".md", ".txt")):
+    if not os.path.exists(doc_path):
         raise HTTPException(status_code=404, detail=f"Document '{safe_filename}' introuvable")
     with open(doc_path, "r", encoding="utf-8") as f:
         content = f.read()
