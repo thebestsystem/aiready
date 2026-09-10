@@ -432,7 +432,7 @@ export class ScannerSimulator {
 
     // Animate first 3 steps while waiting for network
     setTimeout(() => {
-      this.progressStatus.textContent = "1/5 Directives robots.txt & détection WAF...";
+      this.progressStatus.textContent = "1/5 Vérification de l'accès de ChatGPT à votre boutique...";
       this.progressBar.style.width = "20%";
       if (this.stepsList[0]) this.stepsList[0].classList.add('active');
     }, 100);
@@ -442,7 +442,7 @@ export class ScannerSimulator {
         this.stepsList[0].classList.replace('active', 'done');
         this.stepsList[0].querySelector('i').className = 'fas fa-check-circle';
       }
-      this.progressStatus.textContent = "2/5 Extraction DOM & parsing Schema.org JSON-LD...";
+      this.progressStatus.textContent = "2/5 Lecture de vos produits (nom, prix, stock)...";
       this.progressBar.style.width = "40%";
       if (this.stepsList[1]) this.stepsList[1].classList.add('active');
     }, 450);
@@ -452,7 +452,7 @@ export class ScannerSimulator {
         this.stepsList[1].classList.replace('active', 'done');
         this.stepsList[1].querySelector('i').className = 'fas fa-check-circle';
       }
-      this.progressStatus.textContent = "3/5 Pureté sémantique & ratio signal/bruit...";
+      this.progressStatus.textContent = "3/5 Analyse de la clarté de vos fiches pour l'IA...";
       this.progressBar.style.width = "60%";
       if (this.stepsList[2]) this.stepsList[2].classList.add('active');
     }, 850);
@@ -462,7 +462,7 @@ export class ScannerSimulator {
         this.stepsList[2].classList.replace('active', 'done');
         this.stepsList[2].querySelector('i').className = 'fas fa-check-circle';
       }
-      this.progressStatus.textContent = "4/5 Complétude de l'offre (intention & checkout)...";
+      this.progressStatus.textContent = "4/5 Contrôle du prix, de la livraison et des retours...";
       this.progressBar.style.width = "80%";
       if (this.stepsList[3]) this.stepsList[3].classList.add('active');
     }, 1250);
@@ -470,7 +470,7 @@ export class ScannerSimulator {
 
   completeProgressUI(callback) {
     this.progressBar.style.width = "100%";
-    this.progressStatus.textContent = "5/5 Synthèse et génération des protocoles...";
+    this.progressStatus.textContent = "5/5 Synthèse et recommandations...";
     this.stepsList.forEach(s => {
       s.classList.remove('active');
       s.classList.add('done');

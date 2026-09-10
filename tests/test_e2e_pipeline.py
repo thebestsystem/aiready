@@ -662,7 +662,7 @@ class TestE2EPipeline(unittest.TestCase):
             self.assertNotEqual(sim_pillar["status"], "Risque ÉLEVÉ (50%+)")
 
             # 4. Stock détecté
-            self.assertIn("IN_STOCK", ai_view["stockStatus"])
+            self.assertIn("En stock", ai_view["stockStatus"])
 
             # 5. Product Data
             prod = data["productData"]
@@ -1080,7 +1080,7 @@ Disallow: /api/v1/trebuchet
             self.assertEqual(res.status_code, 200)
             data = res.json()
             self.assertFalse(data["isProductPage"])
-            self.assertIn("Page d'information", data["summary"])
+            self.assertIn("pas une fiche produit", data["summary"])
             self.assertEqual(data["name"], "Wikipedia, the free encyclopedia")
 
     def test_34_sanitized_dns_error_message(self):
@@ -1155,7 +1155,7 @@ Disallow: /api/v1/trebuchet
 
             # 3. Warning prioritaire dans brokenItems
             broken_titles = [item["title"] for item in data["brokenItems"]]
-            self.assertTrue(any("Client-Side Rendering" in t for t in broken_titles))
+            self.assertTrue(any("JavaScript" in t for t in broken_titles))
 
             # 4. Génération PDF avec encart d'avertissement architecture
             res_pdf = self.client.post("/api/report/pdf", json={

@@ -1765,64 +1765,63 @@ async def scan_url(req: ScanRequest, request: Request):
     broken_items = []
     if crawl_score < 75:
         broken_items.append(BrokenItem(
-            title="Blocage des crawlers IA dans robots.txt ou WAF",
-            impact="GPTBot (ChatGPT) ou ClaudeBot sont refoulés ou bridés lors de l'indexation de vos pages.",
+            title="ChatGPT est bloqué à l'entrée de votre boutique",
+            impact="Votre site refuse l'accès aux robots de ChatGPT, Gemini ou Claude. Vos produits n'apparaissent jamais quand un client demande une recommandation — la vente part chez un concurrent.",
             severity="critical"
         ))
     
     prod_info = prod_data
     if not prod_info.get("price") or str(prod_info.get("price")).strip() in ("Inconnu", "None", ""):
         broken_items.append(BrokenItem(
-            title="Prix et offre (Offer) absents du code source",
-            impact="L'agent IA ne peut pas garantir le montant à l'acheteur et refuse de recommander le panier.",
+            title="Votre prix est illisible pour l'IA",
+            impact="Sans prix fiable, ChatGPT ne peut pas confirmer le montant à l'acheteur et refuse de recommander le produit.",
             severity="critical"
         ))
     elif prod_info.get("price_source") != "schema":
         broken_items.append(BrokenItem(
-            title="Prix non certifié dans Schema.org (détecté uniquement en HTML brut)",
-            impact="L'agent IA doit inférer le prix depuis le DOM avec un risque d'ambiguïté sur les devises ou remises.",
+            title="Prix détecté, mais pas « certifié »",
+            impact="ChatGPT voit votre prix sans être certain de son exactitude (devise, remise, variante). Il peut annoncer un mauvais montant ou préférer ne rien dire.",
             severity="warning"
         ))
     elif not prod_info.get("has_shipping") or not prod_info.get("has_return"):
         broken_items.append(BrokenItem(
-            title="Politique de retour ou frais d'expédition non structurés",
-            impact="Risque d'hallucination élevé : l'IA invente des frais de port erronés ou renvoie vers Amazon.",
+            title="Livraison ou retours pas assez explicites",
+            impact="ChatGPT risque d'inventer vos frais de port (souvent faux) ou de renvoyer le client vers Amazon / Fnac.",
             severity="warning"
         ))
     
     if semantic_res["tokens"] > 3500:
         broken_items.append(BrokenItem(
-            title=f"Surcharge DOM : {semantic_res['tokens']} tokens gaspillés par consultation",
-            impact="Saturation du contexte des agents IA autonomes, perte de précision et risque de timeout.",
+            title="Fiche trop « bruitée » pour l'IA",
+            impact="Trop de code parasite noie l'essentiel : l'IA se fatigue, perd en précision et peut abandonner votre fiche en cours de lecture.",
             severity="warning"
         ))
     
     if not llms_info["found"]:
         broken_items.append(BrokenItem(
-            title="Index standard /.well-known/llms.txt manquant",
-            impact="Aucun manifeste machine-readable direct fourni aux moteurs de recherche IA 2026.",
+            title="Pas de « carte d'identité » pour les moteurs IA",
+            impact="Votre boutique ne fournit pas le fichier standard que ChatGPT et Perplexity utilisent pour vous référencer en priorité. Vos concurrents qui l'ont passent devant.",
             severity="info"
         ))
 
     if not broken_items:
         broken_items.append(BrokenItem(
-            title="Balisage agentique d'excellence",
-            impact="Votre boutique fournit les données nécessaires pour convertir directement les agents IA acheteurs.",
+            title="Boutique prête pour l'achat IA ✓",
+            impact="Vos fiches donnent à ChatGPT tout ce qu'il faut pour recommander vos produits et valider le panier.",
             severity="info"
         ))
 
     # Avertissement prioritaire si CSR non pré-rendu ou challenge WAF
     if audit_type == "CSR_SPA_UNRENDERED":
         broken_items.insert(0, BrokenItem(
-            title="⚠️ Architecture 100% Client-Side Rendering (CSR / SPA)",
-            impact="Le HTML brut initial ne contient aucun texte produit avant exécution JavaScript. Les agents IA d'achat privilégient le code source brut et risquent d'ignorer complètement ce catalogue.",
+            title="⚠️ Vos produits sont invisibles tant que le JavaScript ne tourne pas",
+            impact="Votre boutique charge tout via JavaScript. ChatGPT lit le code brut : il ne voit ni vos produits, ni vos prix, ni votre stock.",
             severity="critical"
         ))
     elif audit_type == "WAF_CHALLENGE":
-        blocker_name = waf_details.get("blocker", "Pare-feu WAF") if waf_details else "Pare-feu WAF"
         broken_items.insert(0, BrokenItem(
-            title=f"⚠️ Accès restreint par pare-feu ({blocker_name})",
-            impact="Un challenge anti-bot a filtré la requête. Les agents autonomes ne résolvent pas les captchas et seront refoulés.",
+            title="⚠️ Votre pare-feu bloque les robots de ChatGPT",
+            impact="Votre protection anti-bot demande un captcha que les robots IA ne peuvent pas résoudre : ils sont refoulés et ne voient rien de votre catalogue.",
             severity="critical"
         ))
 
@@ -1831,30 +1830,30 @@ async def scan_url(req: ScanRequest, request: Request):
         status = "ready"
         status_label = "Agent Ready (Parfaitement Optimisé)"
         badge_class = "badge-ready"
-        summary = f"Fiche produit hautement optimisée pour l'achat IA autonome. Schéma complet et données déterministes sur {domain}."
+        summary = f"Votre fiche est parfaitement lisible par ChatGPT : prix, stock et conditions sont clairs. Il peut recommander votre produit et valider le panier."
     elif total_score >= 50:
         status = "friction"
         status_label = "Agent Friction (Données partielles)"
         badge_class = "badge-friction"
-        summary = f"Le site est accessible mais souffre d'ambiguïtés (frais de port ou politique de retour manquante dans le schéma)."
+        summary = f"ChatGPT accède à votre site mais il lui manque des infos clés (frais de port, retours). Il hésite — et quand l'IA hésite, elle recommande souvent un concurrent."
     else:
         status = "blind"
         status_label = "Agent Blind (Inaudible pour l'IA)"
         badge_class = "badge-blind"
-        summary = f"Ce site est difficilement lisible ou bloqué pour les agents IA. Risque d'hallucination élevé lors des recherches d'achat."
+        summary = f"ChatGPT a du mal à lire votre boutique. Vos produits risquent d'être ignorés — ou pire, décrits avec des prix et des stocks inventés."
 
     if audit_type == "CSR_SPA_UNRENDERED":
         status = "friction"
-        status_label = "Agent Friction (CSR Non Pré-rendu)"
+        status_label = "Agent Friction (Produits invisibles pour ChatGPT)"
         badge_class = "badge-friction"
-        summary = f"Architecture CSR/SPA détectée sur {domain} : le HTML brut ne contient pas de texte produit pré-rendu. Les agents IA nécessitent du SSR pour indexer fiablement ce catalogue."
+        summary = f"Votre boutique {domain} charge son contenu via JavaScript : ChatGPT ne voit ni vos produits, ni vos prix, ni votre stock."
     elif audit_type == "WAF_CHALLENGE":
         status = "friction"
-        status_label = "Agent Friction (Pare-feu WAF Détecté)"
+        status_label = "Agent Friction (ChatGPT bloqué par votre pare-feu)"
         badge_class = "badge-friction"
-        summary = f"Site protégé par pare-feu ({waf_details.get('blocker', 'WAF')}) sur {domain} : l'analyse du DOM complet a été entravée par un challenge anti-bot."
+        summary = f"Votre site {domain} est protégé par un pare-feu qui bloque les robots de ChatGPT et Gemini avant qu'ils ne puissent lire vos fiches."
     elif not prod_data.get("is_product_page"):
-        summary = f"Page d'information / Non-marchande ({domain}) : aucun signal e-commerce direct (ni bouton panier, ni schéma Product). Évaluation de la pureté sémantique et de l'accessibilité pour agents d'information."
+        summary = f"Cette page ({domain}) n'est pas une fiche produit : aucun prix ni bouton panier détecté. Nous évaluons sa lisibilité générale pour les moteurs IA."
 
     prod_name = prod_data.get("name") or page_title
     raw_p = prod_data.get("price")
@@ -1884,21 +1883,21 @@ async def scan_url(req: ScanRequest, request: Request):
                 score=crawl_score,
                 weight="20%",
                 status="Robots OK" if crawl_score >= 75 else "Friction / Bloqué",
-                label="Crawl & Bot Access",
+                label="ChatGPT peut-il vous lire ?",
                 details=crawl_details
             ),
             "schema": PillarScore(
                 score=schema_res["score"],
                 weight="25%",
                 status=schema_res["status"],
-                label="Schema.org / JSON-LD",
+                label="Vos données produit (prix, stock)",
                 details=schema_res["details"]
             ),
             "tokens": PillarScore(
                 score=semantic_res["score"],
                 weight="20%",
                 status=semantic_res["status"],
-                label="Pureté Sémantique",
+                label="Clarté de vos fiches",
                 details=semantic_res["details"]
             ),
             "simulator": PillarScore(
@@ -1912,19 +1911,19 @@ async def scan_url(req: ScanRequest, request: Request):
                 score=proto_score,
                 weight="15%",
                 status="llms.txt Conforme" if proto_score >= 70 else ("Partiel" if proto_score >= 35 else "Non configuré"),
-                label="Protocoles (llms.txt / MCP)",
+                label="Connexion aux moteurs IA",
                 details=proto_details
             )
         },
         aiView={
-            "tokens": f"{semantic_res['tokens']} tokens",
+            "tokens": f"{semantic_res['tokens']} tokens de lecture",
             "extractedPrice": extracted_price,
-            "stockStatus": "IN_STOCK (Confirmé Schema)" if prod_data.get("stock_source") == "schema" else (
-                "IN_STOCK (Détecté HTML)" if prod_data.get("has_stock") else "UNKNOWN (Non explicité dans JSON-LD)"
+            "stockStatus": "En stock (confirmé)" if prod_data.get("stock_source") == "schema" else (
+                "En stock (détecté)" if prod_data.get("has_stock") else "Inconnu (non précisé)"
             ),
-            "shippingTerms": "Livraison spécifiée dans Schema" if prod_data.get("has_shipping") else "MISSING (hasMerchantReturnPolicy / shippingDetails absent)",
+            "shippingTerms": "Livraison spécifiée (claire pour l'IA)" if prod_data.get("has_shipping") else "Non précisés (risque d'invention)",
             "hallucinationRisk": sim_res["hallucination_risk"],
-            "botAccess": "AUTORISÉS" if crawl_score >= 70 else "RESTREINT / BLOCKED"
+            "botAccess": "Autorisés" if crawl_score >= 70 else "Restreint / bloqués"
         },
         autoFix=autofix_files,
         productData=prod_data,
