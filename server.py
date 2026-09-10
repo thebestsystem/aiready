@@ -328,6 +328,7 @@ def _proxy_rate_limit(request: Request) -> None:
 
 class ScanRequest(BaseModel):
     url: str
+    email: Optional[str] = None
     geminiApiKey: Optional[str] = None
 
 class PillarScore(BaseModel):
@@ -1412,6 +1413,11 @@ def extract_stock_from_html(soup: BeautifulSoup) -> Optional[bool]:
 @app.post("/api/scan", response_model=AuditResult, dependencies=[Depends(_scan_rate_limit)])
 async def scan_url(req: ScanRequest):
     url = normalize_url(req.url)  # valide & normalise AVANT tout fetch (levée 400 sur URL invalide)
+    # Quota serveur : email fourni → abonnement actif requis au-delà de la limite gratuite
+    email = (req.email or "").strip().lower()
+    if email and not await _has_active_subscription(email):
+        if not _scan_quota_allowed(email):
+            raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
     parsed = urlparse(url)
     domain = parsed.netloc or parsed.path.split("/")[0]
 
@@ -2383,6 +2389,60 @@ def _add_welcomed_pg(email: str) -> bool:
     except Exception as e:
         _logger.warning("welcomed PG add failed: %s", e)
         return False
+
+
+# ---------------------------------------------------------------------------
+# Quota de scans gratuits (anti-abus + upsell) — compteur par email
+# ---------------------------------------------------------------------------
+_FREE_SCAN_LIMIT = _int_env_clamped("FREE_SCAN_LIMIT", "5", 0, 100_000)
+_SCAN_USAGE_PATH = os.path.join(_base_dir, "scan_usage.json")
+
+
+_scan_usage_table_ready = False
+
+
+def _ensure_scan_usage_table(conn) -> None:
+    global _scan_usage_table_ready
+    if _scan_usage_table_ready:
+        return
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS scan_usage ("
+            " email VARCHAR(255) PRIMARY KEY,"
+            " count INTEGER NOT NULL DEFAULT 0,"
+            " updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
+            ");"
+        )
+    conn.commit()
+    _scan_usage_table_ready = True
+
+
+def _scan_quota_allowed(email: str) -> bool:
+    """True si le scan est autorisé (sous la limite gratuite), sinon False.
+    Incrémente le compteur si autorisé."""
+    email = email.strip().lower()
+    conn_str = _pg_conn_str()
+    if conn_str and _PSYCOPG:
+        try:
+            with _pg_connect(conn_str) as conn:
+                _ensure_scan_usage_table(conn)
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO scan_usage (email, count) VALUES (%s, 1) "
+                        "ON CONFLICT (email) DO UPDATE SET count = scan_usage.count + 1 "
+                        "RETURNING count",
+                        (email,),
+                    )
+                    new_count = cur.fetchone()[0]
+                conn.commit()
+            return new_count <= _FREE_SCAN_LIMIT
+        except Exception as e:
+            _logger.warning("scan_usage PG failed: %s", e)
+    data = _load_json(_SCAN_USAGE_PATH) or {}
+    cur = int(data.get(email, 0)) + 1
+    data[email] = cur
+    _save_json(_SCAN_USAGE_PATH, data)
+    return cur <= _FREE_SCAN_LIMIT
 
 
 # ---------------------------------------------------------------------------

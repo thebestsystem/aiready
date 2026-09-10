@@ -340,7 +340,8 @@ export class ScannerSimulator {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           url: customUrl.trim(),
-          geminiApiKey: geminiKey || undefined
+          geminiApiKey: geminiKey || undefined,
+          email: (localStorage.getItem('ar_lead_email') || '').trim() || undefined
         })
       });
 
