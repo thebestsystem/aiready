@@ -67,7 +67,7 @@ SEQUENCE = [
             "<p>Votre score de <b>{score}/100</b> n'est pas un jugement esthétique : c'est une mesure de "
             "<b>certitude transactionnelle</b>. Un agent IA ne recommande un produit que s'il peut confirmer "
             "prix, stock, livraison et retour sans risque d'hallucination.</p>"
-            "<p>Les 5 piliers pondérés : Crawl (20%), Schema.org (25%), Tokens (20%), Complétude (20%), Protocoles (15%).</p>"
+            "<p>Les 5 piliers pondérés : Crawl (25%), Schema.org (30%), Tokens (20%), Complétude (25%), Protocoles (bonus).</p>"
             "<p><a href='{site}#pillars' style='color:#06b6d4;'>Décoder mon score pilier par pilier →</a></p>"
             + _FOOTER
         ),
@@ -80,7 +80,7 @@ SEQUENCE = [
             "<ul>"
             "<li><b>Schema.org incomplet ou absent</b> — l'IA ne peut pas certifier le prix ni le stock.</li>"
             "<li><b>Risque d'hallucination</b> — frais de port ou politique de retour illisibles.</li>"
-            "<li><b>Protocoles agentiques manquants</b> — pas de llms.txt ni de serveur MCP.</li>"
+            "<li><b>Bots IA bloqués ou contenu inaccessible</b> — robots.txt ou pare-feu qui refoulent ChatGPT et Gemini.</li>"
             "</ul>"
             "<p>Chaque faille = un client perdu au profit d'un concurrent mieux structuré.</p>"
             "<p><a href='{trial}' style='color:#06b6d4;'>Corriger ça avec l'essai gratuit →</a></p>"
@@ -95,7 +95,6 @@ SEQUENCE = [
             "<ul>"
             "<li>JSON-LD Schema.org enrichi (prix, devise, stock, retour).</li>"
             "<li>Fichier <code>llms.txt</code> standard.</li>"
-            "<li>Serveur MCP dédié pour connecter votre boutique aux agents IA.</li>"
             "</ul>"
             "<p>Copiez, collez, c'est corrigé. Compatible Shopify, WooCommerce, Magento, Webflow.</p>"
             "<p><a href='{site}#autofix' style='color:#06b6d4;'>Voir le générateur auto-fix →</a></p>"

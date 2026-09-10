@@ -73,11 +73,11 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué par un pare-feu", label: "ChatGPT peut-il vous lire ?" },
-      schema: { score: 30, max: 100, weight: "25%", status: "Incomplet", label: "Vos données produit (prix, stock)" },
+      crawl: { score: 45, max: 100, weight: "25%", status: "Bloqué par un pare-feu", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 30, max: 100, weight: "30%", status: "Incomplet", label: "Vos données produit (prix, stock)" },
       tokens: { score: 40, max: 100, weight: "20%", status: "Très bruité", label: "Clarté de vos fiches" },
-      simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "Complétude de l'offre" },
-      proto: { score: 10, max: 100, weight: "15%", status: "Non connecté", label: "Connexion aux moteurs IA" }
+      simulator: { score: 35, max: 100, weight: "25%", status: "Hallucinations détectées", label: "Complétude de l'offre" },
+      proto: { score: 10, max: 100, weight: "Bonus", status: "Non connecté", label: "Protocoles (bonus, non noté)" }
     },
     aiView: {
       tokens: "5 840 tokens de lecture",
@@ -159,11 +159,11 @@ export const AUDIT_PRESETS = {
       has_return: true
     },
     pillars: {
-      crawl: { score: 98, max: 100, weight: "20%", status: "Accès libre pour ChatGPT", label: "ChatGPT peut-il vous lire ?" },
-      schema: { score: 96, max: 100, weight: "25%", status: "Complet", label: "Vos données produit (prix, stock)" },
+      crawl: { score: 98, max: 100, weight: "25%", status: "Accès libre pour ChatGPT", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 96, max: 100, weight: "30%", status: "Complet", label: "Vos données produit (prix, stock)" },
       tokens: { score: 95, max: 100, weight: "20%", status: "Très clair", label: "Clarté de vos fiches" },
-      simulator: { score: 98, max: 100, weight: "20%", status: "5/5 points vérifiés", label: "Complétude de l'offre" },
-      proto: { score: 94, max: 100, weight: "15%", status: "Connecté", label: "Connexion aux moteurs IA" }
+      simulator: { score: 98, max: 100, weight: "25%", status: "5/5 points vérifiés", label: "Complétude de l'offre" },
+      proto: { score: 94, max: 100, weight: "Bonus", status: "Connecté", label: "Protocoles (bonus, non noté)" }
     },
     aiView: {
       tokens: "780 tokens de lecture",
@@ -245,11 +245,11 @@ export const AUDIT_PRESETS = {
       image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80"
     },
     pillars: {
-      crawl: { score: 75, max: 100, weight: "20%", status: "Accès OK", label: "ChatGPT peut-il vous lire ?" },
-      schema: { score: 60, max: 100, weight: "25%", status: "Incomplet (livraison manquante)", label: "Vos données produit (prix, stock)" },
+      crawl: { score: 75, max: 100, weight: "25%", status: "Accès OK", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 60, max: 100, weight: "30%", status: "Incomplet (livraison manquante)", label: "Vos données produit (prix, stock)" },
       tokens: { score: 68, max: 100, weight: "20%", status: "Assez clair", label: "Clarté de vos fiches" },
-      simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "Complétude de l'offre" },
-      proto: { score: 35, max: 100, weight: "15%", status: "Partiellement connecté", label: "Connexion aux moteurs IA" }
+      simulator: { score: 62, max: 100, weight: "25%", status: "Réponses vagues sur retours", label: "Complétude de l'offre" },
+      proto: { score: 35, max: 100, weight: "Bonus", status: "Partiellement connecté", label: "Protocoles (bonus, non noté)" }
     },
     aiView: {
       tokens: "2 450 tokens de lecture",
@@ -333,7 +333,7 @@ export const CODE_SNIPPETS = {
 - **Livraison :** Gratuite en 24-48h en France métropolitaine et Union Européenne pour toute commande > 50€.
 - **Politique de Retour :** 30 jours d'essai sans frais, étiquette prépayée fournie.
 - **Paiement & Checkout :** Compatible Apple Pay, Stripe Agentic API, PayPal.
-- **Stock Endpoint MCP :** https://api.sonus-audio.com/mcp/v1/inventory`,
+- **Flux produit :** Flux de données structurées mis à jour en temps réel.`,
 
   schemaJson: `<script type="application/ld+json">
 {

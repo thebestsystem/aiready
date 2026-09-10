@@ -11,7 +11,7 @@
 Toute la stratégie, l'analyse de marché et les spécifications techniques du produit sont documentées dans le dossier `/docs` :
 
 - 📊 **[Analyse de Marché & Concurrence](./docs/MARKET_ANALYSIS.md)** : Données 2026, croissance du trafic IA, benchmark concurrentiel détaillé (Shopify Scanner, FoundGPT, Verity, Profound) et notre positionnement "Blue Ocean".
-- 📋 **[Product Requirements Document (PRD)](./docs/PRD.md)** : Spécifications fonctionnelles complètes, les 5 piliers de scoring (0 à 100), architecture technique, protocoles IA (`llms.txt`, MCP), pricing et roadmap MVP.
+- 📋 **[Product Requirements Document (PRD)](./docs/PRD.md)** : Spécifications fonctionnelles complètes, les 5 piliers de scoring (0 à 100), architecture technique, protocoles IA (`llms.txt` — bonus), pricing et roadmap MVP.
 - 💬 **[Archive de la Discussion Stratégique](./docs/CHAT_ARCHIVE.md)** : Transcription intégrale des échanges ayant défini la vision et les fondations du produit.
 
 ---
@@ -24,16 +24,16 @@ Toute la stratégie, l'analyse de marché et les spécifications techniques du p
                                                  │
       ┌──────────────────┬───────────────────────┼──────────────────────┬──────────────────┐
       ▼                  ▼                       ▼                      ▼                  ▼
-1. Crawl & Access  2. Semantic Schema   3. Token Efficiency    4. Intent & FAQs   5. Actionability (MCP)
-  (Robots, WAF,      (JSON-LD, Offers,       (Clean Markdown,       (Answers specs,     (llms.txt, API,
-   Rendering)          Variants, Stock)        Zero Noise)            Anti-Hallucinate)   Cart Endpoints)
+1. Crawl & Access  2. Semantic Schema   3. Token Efficiency    4. Intent & FAQs   5. Protocoles (bonus)
+  (Robots, WAF,      (JSON-LD, Offers,       (Clean Markdown,       (Answers specs,     (llms.txt —
+   Rendering)          Variants, Stock)        Zero Noise)            Anti-Hallucinate)   bonus, non noté)
 ```
 
 1. **Crawl & Accessibilité IA :** Analyse des directives `robots.txt` (GPTBot, ClaudeBot, PerplexityBot), blocage WAF (Cloudflare/DataDome) et détection SSR vs CSR.
 2. **Données Structurées (Schema.org) :** Validation rigoureuse du JSON-LD `Product`, `Offer`, variantes, stocks temps réel et politiques de retour/livraison.
 3. **Pureté Sémantique & Efficacité Tokens :** Nettoyage de la pollution DOM/scripts et mesure du coût en tokens pour les LLMs.
 4. **Complétude de l'offre :** Vérification déterministe que la fiche contient tout ce qu'un agent IA doit lire (prix, stock, livraison, retour) pour répondre sans inventer.
-5. **Protocoles Agentiques :** Validation et génération de fichiers `llms.txt`, manifestes `agent-card.json` et serveurs **Model Context Protocol (MCP)**.
+5. **Protocoles (bonus, non noté) :** Génération d'un fichier `llms.txt` optionnel qui aide les assistants à lire vos pages plus vite. Non requis par Google ni les moteurs IA — il n'entre pas dans le score.
 
 ---
 

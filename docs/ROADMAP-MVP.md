@@ -6,7 +6,7 @@
 ---
 
 ## Stratégie de lancement (rappel, actée)
-**Semi-concierge / High-ticket d'abord** (J0–J60) : le scanner gratuit + le rapport PDF servent de *trojan horse* pour capturer des leads. On vend à la main des **packs « Mise en conformité AgentReady » 500 € – 1 500 €** (audit complet + JSON-LD corrigé + `llms.txt` + endpoint MCP).  
+**Semi-concierge / High-ticket d'abord** (J0–J60) : le scanner gratuit + le rapport PDF servent de *trojan horse* pour capturer des leads. On vend à la main des **packs « Mise en conformité AgentReady » 500 € – 1 500 €** (audit complet + JSON-LD corrigé + `llms.txt` + déploiement assisté).  
 **P2 self-serve** (J60–J90) : espace client, monitoring récurrent, abonnement Stripe 49 €/199 €.
 
 **Conséquence immédiate :** pas de code paywall Stripe à J1. En revanche, la capture de leads DOIT être irréprochable (c'est notre seule monnaie), et le produit ne doit pas nous mettre en porte-à-faux face à un prospect exigeant.
@@ -17,7 +17,7 @@
 
 | # | Sujet | Issue | Impact si non fait |
 |---|-------|-------|--------------------|
-| P0-1 | Score global sur **5 piliers** pondérés conformes au PRD (20/25/20/20/15) + `weight` numériques + simulateur/protocoles intégrés à la note | #1 | Vendre 5 piliers, en calculer 3 → perte de crédibilité au premier client pointilleux |
+| P0-1 | Score global sur **5 piliers** pondérés conformes au PRD (25/30/20/25 + bonus) + `weight` numériques + simulateur/protocoles intégrés à la note | #1 | Vendre 5 piliers, en calculer 3 → perte de crédibilité au premier client pointilleux |
 | P0-2 | Dépollution racine + `.gitignore` (scripts cobayes, `leads.csv`, env) | #4 | Repo non "client-ready", risque de fuite (emails, clés) si commit |
 | P0-3 | Capture de leads **résiliente** : Postgres managé (transaction) + webhook Slack temps réel + backup CSV local | #5 | Perdre la monnaie (emails) au premier redeploy |
 
@@ -42,7 +42,7 @@
 2. **Paywall Stripe** (Free / Pro 49 € / Agency 199 € selon grille PRD) : quotas par plan, webhooks Stripe.
 3. **Dashboard de monitoring récurrent** (re-scan périodique, alerte de régression de score).
 4. **Scan en masse** (batch URLs + export CSV/Excel) + **PDF white-label** pour agences.
-5. **Boutique** : onboarding de déploiement du fix (injection JSON-LD + llms.txt + MCP) en produit tour.
+5. **Boutique** : onboarding de déploiement du fix (injection JSON-LD + llms.txt) en produit tour.
 
 ---
 
@@ -50,7 +50,7 @@
 
 ### Sprint Immédiat — P0 (Hygiène & Crédibilité)
 1. **#4 Dépollution du repo** : déplacement de `welcomeoffice` + scripts de test → `tests/fixtures/`, `.gitignore` au propre (CSV locaux, dumps, caches, env). *Terrain net avant tout autre commit.*
-2. **#1 Alignement strict du Score 5 Piliers** : pondération PRD dans `server.py` (20 / 25 / 20 / 20 / 15), `weight` numériques, simulateur/protocoles dans la note.
+2. **#1 Alignement strict du Score 5 Piliers** : pondération PRD dans `server.py` (25 / 30 / 20 / 25 + bonus), `weight` numériques, simulateur/protocoles dans la note.
 3. **#5 Résilience des Leads** : persistance **Postgres** (transaction) + webhook **Slack/Discord** + backup CSV local ; fix UX "lead vs succès PDF" côté front.
 
 ### Sprint Stabilisation — P1

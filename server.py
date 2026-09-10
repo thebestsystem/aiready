@@ -1706,37 +1706,36 @@ async def _run_scan(url: str) -> AuditResult:
         "geminiLive": False
     }
 
-    # PILIER 5 : Protocoles Agentiques (llms.txt & MCP) - Grille dégradée non-abrupte
+    # PILIER 5 : Protocoles (bonus informatif, non noté) — llms.txt n'est ni requis ni pondéré
     proto_score = 0
     proto_details = []
     if llms_info["found"]:
         if llms_info["path"] == "/.well-known/llms.txt":
             proto_score = 70
-            proto_details.append(f"Fichier standard {llms_info['path']} détecté !")
+            proto_details.append(f"Fichier standard {llms_info['path']} détecté (bonus)")
         else:
             proto_score = 45
-            proto_details.append(f"Fichier {llms_info['path']} détecté (chemin alternatif, /.well-known/ recommandé)")
+            proto_details.append(f"Fichier {llms_info['path']} détecté (chemin alternatif — bonus)")
 
         llms_content = (llms_info.get("content") or "").lower()
-        if any(kw in llms_content for kw in ["mcp", "endpoint", "api", "tools", "openapi"]):
+        if any(kw in llms_content for kw in ["endpoint", "api", "tools", "openapi"]):
             proto_score += 30
-            proto_details.append("Directives d'endpoints / MCP détectées dans le manifeste")
+            proto_details.append("Directives d'endpoints / API détectées dans le manifeste")
         else:
-            proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
+            proto_details.append("Pas de directives d'endpoints (optionnel)")
     else:
         proto_score = 5
-        proto_details.append("Fichier /.well-known/llms.txt introuvable (Manifeste non configuré)")
-        proto_details.append("Configuration MCP manquante (Générée dans l'Auto-Fix)")
+        proto_details.append("Fichier llms.txt absent — optionnel, non requis par Google ni les moteurs IA")
+        proto_details.append("Ce pilier est un bonus : il n'entre pas dans votre score.")
 
     proto_score = max(5, min(100, proto_score))
 
-    # CALCUL DU SCORE GLOBAL CONFORME PRD (5 Piliers Déterministes : 20/25/20/20/15 = 100%)
+    # CALCUL DU SCORE GLOBAL — 4 piliers notés (25/30/20/25 = 100%), proto = bonus non noté
     total_score = int(
-        (crawl_score * 0.20) +
-        (schema_res["score"] * 0.25) +
+        (crawl_score * 0.25) +
+        (schema_res["score"] * 0.30) +
         (semantic_res["score"] * 0.20) +
-        (sim_res["score"] * 0.20) +
-        (proto_score * 0.15)
+        (sim_res["score"] * 0.25)
     )
     total_score = max(5, min(100, total_score))
 
@@ -1790,8 +1789,8 @@ async def _run_scan(url: str) -> AuditResult:
     
     if not llms_info["found"]:
         broken_items.append(BrokenItem(
-            title="Pas de « carte d'identité » pour les moteurs IA",
-            impact="Votre boutique ne fournit pas le fichier standard que ChatGPT et Perplexity utilisent pour vous référencer en priorité. Vos concurrents qui l'ont passent devant.",
+            title="Bonus : fichier llms.txt absent (optionnel)",
+            impact="Google et les moteurs IA ne l'exigent pas. Ce fichier aide surtout les assistants à lire vos pages plus vite ; sans lui, votre score et votre visibilité ne sont pas pénalisés.",
             severity="info"
         ))
 
@@ -1872,14 +1871,14 @@ async def _run_scan(url: str) -> AuditResult:
         pillars={
             "crawl": PillarScore(
                 score=crawl_score,
-                weight="20%",
+                weight="25%",
                 status="Robots OK" if crawl_score >= 75 else "Friction / Bloqué",
                 label="ChatGPT peut-il vous lire ?",
                 details=crawl_details
             ),
             "schema": PillarScore(
                 score=schema_res["score"],
-                weight="25%",
+                weight="30%",
                 status=schema_res["status"],
                 label="Vos données produit (prix, stock)",
                 details=schema_res["details"]
@@ -1893,16 +1892,16 @@ async def _run_scan(url: str) -> AuditResult:
             ),
             "simulator": PillarScore(
                 score=sim_res["score"],
-                weight="20%",
+                weight="25%",
                 status=f"Risque {sim_res['hallucination_risk']}",
                 label="Complétude de l'offre",
                 details=sim_res["details"]
             ),
             "proto": PillarScore(
                 score=proto_score,
-                weight="15%",
-                status="llms.txt Conforme" if proto_score >= 70 else ("Partiel" if proto_score >= 35 else "Non configuré"),
-                label="Connexion aux moteurs IA",
+                weight="Bonus",
+                status="llms.txt présent (bonus)" if proto_score >= 70 else ("llms.txt alternatif (bonus)" if proto_score >= 35 else "llms.txt absent (optionnel)"),
+                label="Protocoles (bonus, non noté)",
                 details=proto_details
             )
         },
@@ -2137,7 +2136,7 @@ Génère une réponse comparative en JSON stricte avec la structure suivante :
   }},
   "agentReadyResponse": {{
     "agentStatus": "✅ 100% Déterministe & Certifié",
-    "response": "<Comment un agent IA optimisé AgentReady répondrait avec certitude et précision grâce aux métadonnées Schema.org et llms.txt>",
+    "response": "<Comment un agent IA optimisé AgentReady répondrait avec certitude et précision grâce aux métadonnées Schema.org>",
     "verdict": "<Court impact positif immédiat sur la conversion>"
   }},
   "model": "{GEMINI_PRIMARY_MODEL}",

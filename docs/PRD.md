@@ -30,10 +30,10 @@ graph TD
     B --> C2[2. Schema.org & JSON-LD Validator]
     B --> C3[3. Semantic Density & Token Cost]
     B --> C4[4. Complétude de l'offre - déterministe]
-    B --> C5[5. Agentic Protocols - llms.txt & MCP]
+    B --> C5[5. Protocoles (bonus) - llms.txt]
     C1 & C2 & C3 & C4 & C5 --> D[Calcul Score 0-100 & Rapport Interactif]
     D --> E1[Visualisation Human View vs AI Agent View]
-    D --> E2[Générateur Auto-Fix 1-Click: JSON-LD + llms.txt + MCP]
+    D --> E2[Générateur Auto-Fix 1-Click: JSON-LD + llms.txt]
     D --> E3[Export PDF White-Label / Dashboard Monitoring]
 ```
 
@@ -43,11 +43,11 @@ graph TD
 
 | Pilier | Poids | Règles & Vérifications Techniques | Critères de Succès |
 | :--- | :---: | :--- | :--- |
-| **1. Crawlability & Bot Access** | **20%** | • Analyse de `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`).<br/>• Détection des barrières WAF (Cloudflare Challenge, DataDome).<br/>• Détection du rendu (SSR vs CSR avec blocage JS). | Bots autorisés, aucun challenge bloquant, HTML pré-rendu en SSR. |
-| **2. Schema.org & JSON-LD** | **25%** | • Schéma `@type: "Product"` et `Offer`.<br/>• Attributs obligatoires : `name`, `description`, `sku`, `gtin`, `price`, `priceCurrency`, `availability`.<br/>• Attributs avancés : `hasMerchantReturnPolicy`, `shippingDetails`, gestion des variantes. | Schéma 100% conforme sans warnings Schema.org ni champs critiques manquants. |
+| **1. Crawlability & Bot Access** | **25%** | • Analyse de `robots.txt` (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended`).<br/>• Détection des barrières WAF (Cloudflare Challenge, DataDome).<br/>• Détection du rendu (SSR vs CSR avec blocage JS). | Bots autorisés, aucun challenge bloquant, HTML pré-rendu en SSR. |
+| **2. Schema.org & JSON-LD** | **30%** | • Schéma `@type: "Product"` et `Offer`.<br/>• Attributs obligatoires : `name`, `description`, `sku`, `gtin`, `price`, `priceCurrency`, `availability`.<br/>• Attributs avancés : `hasMerchantReturnPolicy`, `shippingDetails`, gestion des variantes. | Schéma 100% conforme sans warnings Schema.org ni champs critiques manquants. |
 | **3. Pureté Sémantique & Tokens** | **20%** | • Ratio texte produit utile / pollution DOM (scripts, trackers, SVG masqués).<br/>• Balisage HTML5 sémantique (`<main>`, `<article>`, `<table>` de specs).<br/>• Estimation du coût en tokens par requête d'IA. | Rendu markdown épuré, moins de 1 500 tokens par fiche produit. |
-| **4. Complétude de l'offre** | **20%** | • Vérification déterministe (sans appel LLM) que la fiche contient :<br/>  1. Prix exact.<br/>  2. Disponibilité en stock.<br/>  3. Frais & délais de livraison.<br/>  4. Politique de retour.<br/>• Niveau de risque d'ambiguïté (Faible/Moyen/Élevé) si un signal manque. | Les 4 signaux présents et non ambigus. |
-| **5. Protocoles Agentiques (MCP/llms.txt)** | **15%** | • Présence de `/.well-known/llms.txt` ou `/llms.txt`.<br/>• Présence d'un manifeste `agent-card.json`.<br/>• Endpoint public de disponibilité de panier/stock (MCP). | `llms.txt` valide et endpoint MCP fonctionnel. |
+| **4. Complétude de l'offre** | **25%** | • Vérification déterministe (sans appel LLM) que la fiche contient :<br/>  1. Prix exact.<br/>  2. Disponibilité en stock.<br/>  3. Frais & délais de livraison.<br/>  4. Politique de retour.<br/>• Niveau de risque d'ambiguïté (Faible/Moyen/Élevé) si un signal manque. | Les 4 signaux présents et non ambigus. |
+| **5. Protocoles (bonus)** | **0% (bonus)** | • Présence optionnelle de `/.well-known/llms.txt` ou `/llms.txt` (aide les assistants à lire plus vite).<br/>• Non requis par Google ni les moteurs IA.<br/>• N'entre pas dans le score global. | `llms.txt` détecté — bonus, non noté. |
 
 ---
 
@@ -67,7 +67,7 @@ graph TD
 ### Module B : Le Moteur d'Auto-Fix & Protocol Generator
 - **Générateur `llms.txt` & `llms-full.txt` :** Fichier structuré optimisé décrivant l'ensemble de l'offre et des politiques du marchand.
 - **Générateur de Snippet JSON-LD Enrichi :** Code copiable en 1 clic ou injecté automatiquement.
-- **Serveur MCP Auto-généré :** Export d'une configuration de serveur Model Context Protocol permettant à Claude ou ChatGPT d'interroger directement l'inventaire.
+- ~~Serveur MCP Auto-généré~~ — retiré : protocole dev non déployable par un marchand, non requis par les moteurs IA.
 
 ### Module C : Espace Agence & Rapports Marque Blanche
 - Génération de rapports PDF de 5 pages personnalisés avec le logo et les couleurs de l'agence.
@@ -100,7 +100,7 @@ graph TD
 | **Score global & 5 piliers** | ✅ Inclus | ✅ Inclus | ✅ Inclus |
 | **Complétude de l'offre (déterministe)** | 1 scan démo | 50 scans / mois | 500 scans / mois |
 | **Générateur llms.txt & JSON-LD** | Aperçu basique | ✅ Export complet illimité | ✅ Export complet illimité |
-| **Serveur MCP Dédié** | ❌ | ✅ Inclus | ✅ Inclus |
+| ~~Serveur MCP Dédié~~ | ❌ | ❌ (retiré) | ❌ (retiré) |
 | **Rapports PDF White-Label** | ❌ | ❌ | ✅ Logo & Marque personnalisée |
 | **Scans en Masse (Batch)** | ❌ | ❌ | ✅ Jusqu'à 500 URLs / batch |
 | **Support** | Communautaire | Email prioritaire | Dédié & Slack partagé |
@@ -117,7 +117,7 @@ graph TD
 
 ### Phase 2 : Auto-Fix & Monétisation (Semaines 3 - 4)
 - [ ] Générateur de `llms.txt` et microdonnées JSON-LD.
-- [ ] Générateur de configuration de serveur MCP.
+- ~~Générateur de configuration de serveur MCP~~ — retiré (non requis, protocole dev non déployable par un marchand).
 - [ ] Intégration Stripe (Abonnements Pro & Agency) et système d'authentification.
 - [ ] Générateur de rapports PDF téléchargeables.
 

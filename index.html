@@ -157,7 +157,7 @@
             <li class="scan-step-item" id="step-1"><i class="fas fa-circle-notch fa-spin"></i> 2. Lecture de vos données produit</li>
             <li class="scan-step-item" id="step-2"><i class="fas fa-circle-notch fa-spin"></i> 3. Clarté de vos fiches</li>
             <li class="scan-step-item" id="step-3"><i class="fas fa-clock"></i> 4. Complétude de l'offre</li>
-            <li class="scan-step-item" id="step-4"><i class="fas fa-clock"></i> 5. Connexion aux moteurs IA</li>
+            <li class="scan-step-item" id="step-4"><i class="fas fa-clock"></i> 5. Protocoles (bonus)</li>
           </ul>
         </div>
 
@@ -314,17 +314,17 @@
               <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">
                 Détail des 5 Piliers d'Audit (Méthodologie PRD · 100% Déterministe)
               </span>
-              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Accès IA 20% · Données produit 25% · Clarté 20% · Complétude 20% · Connexion IA 15%</span>
+              <span style="font-size: 0.8rem; color: var(--cyan-400);">Pondération : Accès IA 25% · Données produit 30% · Clarté 20% · Complétude 25% · Protocoles (bonus, non noté)</span>
             </div>
 
             <div class="pillars-mini-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));">
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">1. Accès IA (20%)</div>
+                <div class="pillar-mini-title">1. Accès IA (25%)</div>
                 <div class="pillar-mini-score" id="pillar-score-crawl">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-crawl">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">2. Données produit (25%)</div>
+                <div class="pillar-mini-title">2. Données produit (30%)</div>
                 <div class="pillar-mini-score" id="pillar-score-schema">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-schema">--</div>
               </div>
@@ -335,14 +335,14 @@
               </div>
               <div class="pillar-mini-card">
                 <div class="pillar-mini-title" style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>4. Complétude (20%)</span>
+                  <span>4. Complétude (25%)</span>
                   <span id="pillar-gemini-badge" style="font-size: 0.68rem; font-weight: 600; color: var(--cyan-400);"><i class="fas fa-microchip"></i> IA Déterministe</span>
                 </div>
                 <div class="pillar-mini-score" id="pillar-score-sim">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-sim">--</div>
               </div>
               <div class="pillar-mini-card">
-                <div class="pillar-mini-title">5. Connexion IA (15%)</div>
+                <div class="pillar-mini-title">5. Protocoles (bonus)</div>
                 <div class="pillar-mini-score" id="pillar-score-proto">--</div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;" id="pillar-status-proto">--</div>
               </div>
@@ -359,7 +359,7 @@
                 <i class="fas fa-share-nodes"></i> Partager l'audit
               </button>
               <a href="#autofix" class="btn btn-secondary">
-                <i class="fas fa-file-code"></i> Fichiers llms.txt & MCP
+                <i class="fas fa-file-code"></i> Fichiers llms.txt (bonus)
               </a>
             </div>
             <div style="font-size: 0.8rem; color: var(--text-muted);">
@@ -590,11 +590,11 @@
         <div class="report-pillars-title">Détail des 5 Piliers d'Évaluation</div>
         <table class="report-pillars">
           <tr><th>Pilier</th><th>Poids</th><th>Score</th><th>Statut</th></tr>
-          <tr><td>1. Accès IA</td><td>20%</td><td><b>85/100</b></td><td>Accès OK</td></tr>
-          <tr><td>2. Données produit</td><td>25%</td><td><b>25/100</b></td><td>Données incomplètes</td></tr>
+          <tr><td>1. Accès IA</td><td>25%</td><td><b>85/100</b></td><td>Accès OK</td></tr>
+          <tr><td>2. Données produit</td><td>30%</td><td><b>25/100</b></td><td>Données incomplètes</td></tr>
           <tr><td>3. Clarté de la fiche</td><td>20%</td><td><b>100/100</b></td><td>Très claire</td></tr>
-          <tr><td>4. Complétude de l'offre</td><td>20%</td><td><b>65/100</b></td><td>Risque moyen</td></tr>
-          <tr><td>5. Connexion aux moteurs IA</td><td>15%</td><td><b>5/100</b></td><td>Non connecté</td></tr>
+          <tr><td>4. Complétude de l'offre</td><td>25%</td><td><b>65/100</b></td><td>Risque moyen</td></tr>
+          <tr><td>5. Protocoles (bonus)</td><td>Bonus</td><td><b>5/100</b></td><td>Non connecté</td></tr>
         </table>
 
         <div class="report-diag-title">Diagnostic de l'IA acheteuse</div>
@@ -606,7 +606,7 @@
 # Boutique E-commerce — accès agentique (extrait)
 # Correction déployable en 1 clic depuis AgentReady Auto-Fix…</div>
 
-        <div class="report-preview-foot">Rapport certifié AgentReady • Schema.org 2026 • llms.txt &amp; MCP</div>
+        <div class="report-preview-foot">Rapport certifié AgentReady • Schema.org 2026 • llms.txt</div>
       </div>
 
       <div style="text-align: center; margin-top: 1.75rem;">
@@ -731,11 +731,11 @@
 
       <div class="pillars-grid">
         
-        <!-- Pilier 1 (20%) -->
+        <!-- Pilier 1 (25%) -->
         <div class="pillar-card" style="border-color: rgba(56, 189, 248, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-shield-virus"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--cyan-400);">Poids : 20%</span>
+            <span class="pillar-weight-badge" style="background: rgba(56, 189, 248, 0.15); color: var(--cyan-400);">Poids : 25%</span>
           </div>
           <h3 class="pillar-title">1. Votre boutique est accessible aux IA</h3>
           <p class="pillar-desc">
@@ -748,11 +748,11 @@
           </ul>
         </div>
 
-        <!-- Pilier 2 (25%) -->
+        <!-- Pilier 2 (30%) -->
         <div class="pillar-card" style="border-color: rgba(16, 185, 129, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-code"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-400);">Poids : 25%</span>
+            <span class="pillar-weight-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--emerald-400);">Poids : 30%</span>
           </div>
           <h3 class="pillar-title">2. L'IA peut lire votre prix et votre stock</h3>
           <p class="pillar-desc">
@@ -782,11 +782,11 @@
           </ul>
         </div>
 
-        <!-- Pilier 4 (20%) -->
+        <!-- Pilier 4 (25%) -->
         <div class="pillar-card" style="border-color: rgba(245, 158, 11, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-brain"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--amber-400);">Poids : 20%</span>
+            <span class="pillar-weight-badge" style="background: rgba(245, 158, 11, 0.15); color: var(--amber-400);">Poids : 25%</span>
           </div>
           <h3 class="pillar-title">4. Votre boutique répond aux questions d'achat</h3>
           <p class="pillar-desc">
@@ -799,20 +799,20 @@
           </ul>
         </div>
 
-        <!-- Pilier 5 (15%) -->
+        <!-- Pilier 5 (bonus, non noté) -->
         <div class="pillar-card" style="border-color: rgba(99, 102, 241, 0.4);">
           <div class="pillar-card-top">
             <div class="pillar-icon-box"><i class="fas fa-network-wired"></i></div>
-            <span class="pillar-weight-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--indigo-400);">Poids : 15%</span>
+            <span class="pillar-weight-badge" style="background: rgba(99, 102, 241, 0.15); color: var(--indigo-400);">Bonus (non noté)</span>
           </div>
-          <h3 class="pillar-title">5. Votre boutique est branchée aux agents IA</h3>
+          <h3 class="pillar-title">5. Protocoles agentiques (bonus)</h3>
           <p class="pillar-desc">
-            Présence du manifeste standard <code>/.well-known/llms.txt</code> et des directives de serveurs <strong>Model Context Protocol (MCP)</strong> pour la transaction directe machine-to-machine.
+            Bonus optionnel : un fichier <code>llms.txt</code> aide les assistants à lire vos pages plus vite. Google et les moteurs IA ne l'exigent pas — il n'entre pas dans votre score.
           </p>
           <ul class="pillar-checklist">
-            <li><i class="fas fa-check"></i> Fichier <code>/.well-known/llms.txt</code> détecté</li>
+            <li><i class="fas fa-check"></i> Fichier <code>/.well-known/llms.txt</code> détecté (bonus)</li>
             <li><i class="fas fa-check"></i> Générateur <code>llms.txt</code> en Auto-Fix</li>
-            <li><i class="fas fa-check"></i> Directives MCP incluses dans l'Auto-Fix</li>
+            <li><i class="fas fa-check"></i> Non requis par Google — n'entre pas dans le score</li>
           </ul>
         </div>
 
@@ -1025,7 +1025,7 @@
             <i class="fas fa-chevron-down" style="color: var(--cyan-400);"></i>
           </div>
           <div class="faq-answer" style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
-            Non. Les correctifs sont générés prêts à copier-coller. Pour les cas avancés (serveur MCP), un prestataire technique peut aider, mais l'essentiel se corrige en 1 clic.
+            Non. Les correctifs sont générés prêts à copier-coller. Pour les cas avancés, un prestataire technique peut aider, mais l'essentiel se corrige en 1 clic.
           </div>
         </div>
 
@@ -1185,7 +1185,7 @@
         <span class="badge badge-cyan" style="margin-bottom: 1rem;">Export Complet Marque Blanche</span>
         <h3 id="modal-heading" style="font-size: 1.5rem; margin-bottom: 0.75rem;">Recevez l'audit complet de 5 pages</h3>
         <p id="modal-subtext" style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.75rem; line-height: 1.5;">
-          Inclut la liste exhaustive des 32 points de contrôle, le rapport d'hallucinations de la Complétude de l'offre et le fichier <code>llms.txt</code> prêt à déployer.
+          Inclut la liste exhaustive des 31 points de contrôle, le rapport d'hallucinations de la Complétude de l'offre et le fichier <code>llms.txt</code> prêt à déployer.
         </p>
 
         <form>

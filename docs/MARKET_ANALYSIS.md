@@ -23,7 +23,7 @@
 │ • Déterminant : Backlinks, mots-clés, │   compare 20 produits, vérifie le     │
 │   design visuel séduisant             │   stock et sélectionne le meilleur    │
 │                                       │ • Déterminant : Précision JSON-LD,    │
-│                                       │   protocoles llms.txt, API/MCP,       │
+│                                       │   données structurées (prix/stock),       │
 │                                       │   absence de blocage anti-bot         │
 └───────────────────────────────────────┴───────────────────────────────────────┘
 ```
@@ -37,9 +37,9 @@
 | Concurrent / Catégorie | Modèle & Cible | Forces | Faiblesses & Angles Morts |
 | :--- | :--- | :--- | :--- |
 | **Shopify Agentic Scanner** (`commerce-readiness.shopify.io`) | Outil natif gratuit pour les marchands Shopify. | Marque officielle Shopify, gratuit, ~30 points de contrôle. | **Limité à l'écosystème Shopify**, diagnostic purement passif, aucune simulation active de LLM, aucune correction automatique. |
-| **FoundGPT & Verity Score** | Applications Shopify de GEO / AEO. | Facile à installer sur Shopify, génération de `llms.txt`, correction de descriptions. | Verrouillé sur Shopify (aucun support WooCommerce, Magento, Headless), scoring limité à 11 règles simples, pas d'endpoint MCP. |
+| **FoundGPT & Verity Score** | Applications Shopify de GEO / AEO. | Facile à installer sur Shopify, génération de `llms.txt`, correction de descriptions. | Verrouillé sur Shopify (aucun support WooCommerce, Magento, Headless), scoring limité à 11 règles simples, pas de détection de complétude de l'offre. |
 | **Profound / Peec AI / Otterly.ai** | Plateformes d'analytics de marque pour moteurs IA. | Tracking puissant des citations de marque dans ChatGPT/Perplexity, dashboard exécutif. | **Entrée de gamme accessible** (Profound dès $99, Peec dès €85, Otterly dès $29/mois) mais orienté **tracking de citations** — aucun audit technique actionnable de fiches produits ni outil de réparation. |
-| **Outils SEO Traditionnels** (Semrush, Ahrefs, Screaming Frog) | Géants de l'audit SEO classique. | Notoriété massive, bases de données géantes. | Obsolètes pour les LLMs : ne mesurent ni la consommation de tokens, ni le risque d'hallucination, ni les nouveaux protocoles machine (MCP/llms.txt). |
+| **Outils SEO Traditionnels** (Semrush, Ahrefs, Screaming Frog) | Géants de l'audit SEO classique. | Notoriété massive, bases de données géantes. | Obsolètes pour les LLMs : ne mesurent ni la consommation de tokens, ni le risque d'hallucination, ni la complétude de l'offre ni la transactabilité agentique. |
 
 ---
 
@@ -56,7 +56,7 @@
                                │                    ★ NOTRE POSITIONNEMENT ★
                                │                    [ AGENTREADY.IO ]
                                │                    (Audit + Simulation + Auto-Fix
-                               │                     + Serveur MCP Multi-plateformes)
+                               │                     + Données structurées & complétude)
                                │
              Audit Technique   │      [ Shopify Scanner / Verity ]
              Statique          │      (Basique, limité à Shopify)
@@ -68,7 +68,7 @@
 ### Nos 4 Piliers de Différenciation :
 1. **Universel & Indépendant :** Fonctionne instantanément sur n'importe quelle URL (Shopify, WooCommerce, Magento, PrestaShop, BigCommerce, Next.js / Hydrogen / Nuxt).
 2. **Complétude de l'offre :** Ne se limite pas à du linting de balises : vérifie de façon déterministe que l'agent dispose de toutes les données (prix, stock, livraison, retour) pour recommander le produit sans inventer.
-3. **Génération de Protocoles Agentiques (MCP & `llms.txt`) :** Offre aux e-commerçants la création en 1-clic d'un serveur **Model Context Protocol (MCP)** et d'un `llms.txt` structuré.
+3. **Réparation actionnable en 1-clic :** Génération de JSON-LD corrigé et d'un fichier `llms.txt` optionnel (non requis par Google) que le marchand peut déployer immédiatement.
 4. **Arme de Prospection pour Agences (White-Label) :** Permet aux agences web et consultants SEO de générer des audits d'acquisition personnalisés en 15 secondes pour closer des prestations GEO.
 
 ---
@@ -85,4 +85,4 @@
 
 ### 🎯 ICP 3 : Marques B2B & Distributeurs à Fort Volume de Références
 - **Pain Point :** Catalogues complexes de pièces et fiches techniques que les IA n'arrivent pas à parser en raison de descriptions mal structurées.
-- **Solution AgentReady :** Enrichissement sémantique des spécifications et création d'un flux MCP dédié.
+- **Solution AgentReady :** Enrichissement sémantique des spécifications et création d'un flux de données structurées dédié.

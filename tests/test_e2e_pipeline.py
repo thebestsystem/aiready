@@ -52,16 +52,14 @@ class TestE2EPipeline(unittest.TestCase):
         schema = 80
         tokens = 70
         sim = 75
-        proto = 50
 
         expected = int(
-            (crawl * 0.20) +
-            (schema * 0.25) +
+            (crawl * 0.25) +
+            (schema * 0.30) +
             (tokens * 0.20) +
-            (sim * 0.20) +
-            (proto * 0.15)
+            (sim * 0.25)
         )
-        self.assertEqual(expected, 74)
+        self.assertEqual(expected, 79)
 
         # 2. Exécution d'un scan réel simulé via l'API
         mock_resp = MagicMock()
@@ -98,9 +96,8 @@ class TestE2EPipeline(unittest.TestCase):
             s = pillars["schema"]["score"]
             t = pillars["tokens"]["score"]
             sim_score = pillars["simulator"]["score"]
-            proto_score = pillars["proto"]["score"]
-            calc_score = int((c * 0.20) + (s * 0.25) + (t * 0.20) + (sim_score * 0.20) + (proto_score * 0.15))
-            self.assertEqual(data["score"], calc_score, "Le score total doit correspondre à la somme pondérée des 5 piliers")
+            calc_score = int((c * 0.25) + (s * 0.30) + (t * 0.20) + (sim_score * 0.25))
+            self.assertEqual(data["score"], calc_score, "Le score total doit correspondre à la somme pondérée des 4 piliers notés")
 
         server._scan_limiter.reset()
 
@@ -117,12 +114,12 @@ class TestE2EPipeline(unittest.TestCase):
         self.assertIn('id="pillar-score-sim"', html)
         self.assertIn('id="pillar-score-proto"', html)
 
-        # Pondérations 20/25/20/20/15
-        self.assertIn("Accès IA 20%", html)
-        self.assertIn("Données produit 25%", html)
+        # Pondérations 25/30/20/25 + proto bonus non noté
+        self.assertIn("Accès IA 25%", html)
+        self.assertIn("Données produit 30%", html)
         self.assertIn("Clarté 20%", html)
-        self.assertIn("Complétude 20%", html)
-        self.assertIn("Connexion IA 15%", html)
+        self.assertIn("Complétude 25%", html)
+        self.assertIn("Protocoles (bonus)", html)
 
         # Élimination de l'ancien 30/40/30
         self.assertNotIn("Pondération : Crawl 30% · Schema 40% · Tokens 30%", html)

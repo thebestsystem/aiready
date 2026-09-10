@@ -202,11 +202,11 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
 
     pillars_rows = [
         [Paragraph("<b>Pilier</b>", normal_style), Paragraph("<b>Pondération</b>", normal_style), Paragraph("<b>Score</b>", normal_style), Paragraph("<b>Statut</b>", normal_style)],
-        [Paragraph("1. ChatGPT peut-il vous lire ?", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
-        [Paragraph("2. Vos données produit (prix, stock)", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
+        [Paragraph("1. ChatGPT peut-il vous lire ?", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
+        [Paragraph("2. Vos données produit (prix, stock)", normal_style), Paragraph("30%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
         [Paragraph("3. Clarté de vos fiches", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_tokens.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_tokens.get('status', '--')), normal_style)],
-        [Paragraph("4. Complétude de l'offre", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
-        [Paragraph("5. Connexion aux moteurs IA", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
+        [Paragraph("4. Complétude de l'offre", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
+        [Paragraph("5. Protocoles (bonus)", normal_style), Paragraph("Bonus", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
     ]
 
     t_pillars = Table(pillars_rows, colWidths=[220, 70, 70, 180])
@@ -261,9 +261,9 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
     # Footer
     story.append(HRFlowable(width="100%", thickness=0.5, color=c_text_muted, spaceBefore=10, spaceAfter=8))
     if brand_label:
-        footer_txt = f"Rapport d'audit édité par {_escape_xml(brand_label)}. Les standards d'audit suivent les spécifications W3C Schema.org 2026 et les protocoles LLMs.txt & Model Context Protocol (MCP)."
+        footer_txt = f"Rapport d'audit édité par {_escape_xml(brand_label)}. Les standards d'audit suivent les spécifications W3C Schema.org 2026."
     else:
-        footer_txt = "Rapport certifié édité par la plateforme AgentReady. Les standards d'audit suivent les spécifications W3C Schema.org 2026 et les protocoles LLMs.txt & Model Context Protocol (MCP)."
+        footer_txt = "Rapport certifié édité par la plateforme AgentReady. Les standards d'audit suivent les spécifications W3C Schema.org 2026."
     story.append(Paragraph(footer_txt, ParagraphStyle('Foot', parent=styles['Normal'], fontSize=7.5, leading=10, textColor=c_text_muted)))
 
     doc.build(story)
