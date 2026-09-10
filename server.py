@@ -1933,10 +1933,17 @@ async def scan_url(req: ScanRequest, request: Request):
     # contournable en omettant simplement l'email (le paywall gratuit n'est alors pas servi).
     email = (req.email or "").strip().lower()
     if email:
-        if not await _has_active_subscription(email):
-            if not _scan_quota_allowed(email):
+        tier = await _get_subscription_tier(email)
+        if tier == "agency":
+            if not _scan_quota_allowed(email, _AGENCY_SCAN_LIMIT):
+                raise HTTPException(status_code=402, detail="Quota Agency atteint (2 500 scans/mois).")
+        elif tier == "pro":
+            if not _scan_quota_allowed(email, _PRO_SCAN_LIMIT):
+                raise HTTPException(status_code=402, detail="Quota Pro atteint (250 scans/mois). Passez à l'offre Agency (199 €/mois).")
+        else:
+            if not _scan_quota_allowed(email, _FREE_SCAN_LIMIT):
                 raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
-    elif not _scan_quota_allowed(f"ip:{_get_client_ip(request)}"):
+    elif not _scan_quota_allowed(f"ip:{_get_client_ip(request)}", _FREE_SCAN_LIMIT):
         raise HTTPException(status_code=402, detail=f"Limite de {_FREE_SCAN_LIMIT} scans gratuits atteinte. Passez à un abonnement (49 € ou 199 €) pour continuer.")
     return await _run_scan(url)
 
@@ -2004,7 +2011,7 @@ async def scan_batch(req: BatchScanRequest):
     email = (req.email or "").strip().lower()
     if not email or not validate_email(email):
         raise HTTPException(status_code=400, detail="Un email valide est requis pour le scan en masse.")
-    if not await _has_active_subscription(email):
+    if await _get_subscription_tier(email) != "agency":
         raise HTTPException(status_code=402, detail="Le scan en masse nécessite un abonnement Agency actif (199 €/mois).")
 
     urls: List[str] = []
@@ -2020,6 +2027,8 @@ async def scan_batch(req: BatchScanRequest):
     urls = urls[:_BATCH_MAX_URLS]
     if not urls:
         raise HTTPException(status_code=400, detail="Aucune URL valide fournie.")
+    if not _scan_quota_allowed(email, _AGENCY_SCAN_LIMIT, increment=len(urls)):
+        raise HTTPException(status_code=402, detail=f"Quota Agency insuffisant : {len(urls)} scans demandés dépassent votre quota mensuel (2 500).")
 
     job_id = _batch_job_new(len(urls))
     _task = asyncio.create_task(_run_batch(job_id, urls))
@@ -2535,10 +2544,17 @@ def _add_welcomed_pg(email: str) -> bool:
 # Quota de scans gratuits (anti-abus + upsell) — compteur par email
 # ---------------------------------------------------------------------------
 _FREE_SCAN_LIMIT = _int_env_clamped("FREE_SCAN_LIMIT", "5", 0, 100_000)
+_PRO_SCAN_LIMIT = _int_env_clamped("PRO_SCAN_LIMIT", "250", 0, 100_000)
+_AGENCY_SCAN_LIMIT = _int_env_clamped("AGENCY_SCAN_LIMIT", "2500", 0, 1_000_000)
 _SCAN_USAGE_PATH = os.path.join(_base_dir, "scan_usage.json")
 
 
 _scan_usage_table_ready = False
+
+
+def _current_period() -> str:
+    """Période de facturation mensuelle 'YYYY-MM' (UTC)."""
+    return datetime.now(timezone.utc).strftime("%Y-%m")
 
 
 def _ensure_scan_usage_table(conn) -> None:
@@ -2548,19 +2564,25 @@ def _ensure_scan_usage_table(conn) -> None:
     with conn.cursor() as cur:
         cur.execute(
             "CREATE TABLE IF NOT EXISTS scan_usage ("
-            " email VARCHAR(255) PRIMARY KEY,"
+            " email VARCHAR(255) NOT NULL,"
+            " period VARCHAR(7) NOT NULL,"
             " count INTEGER NOT NULL DEFAULT 0,"
-            " updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP"
+            " updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,"
+            " PRIMARY KEY (email, period)"
             ");"
         )
     conn.commit()
     _scan_usage_table_ready = True
 
 
-def _scan_quota_allowed(email: str) -> bool:
-    """True si le scan est autorisé (sous la limite gratuite), sinon False.
-    Incrémente le compteur si autorisé."""
+def _scan_quota_allowed(email: str, limit: int = _FREE_SCAN_LIMIT, increment: int = 1) -> bool:
+    """Incrémente le compteur mensuel et retourne True si la nouvelle valeur <= limite.
+
+    Quota remis à zéro chaque mois (clé 'YYYY-MM:email'). `increment` permet de
+    consommer plusieurs scans d'un coup (batch).
+    """
     email = email.strip().lower()
+    period = _current_period()
     conn_str = _pg_conn_str()
     if conn_str and _PSYCOPG:
         try:
@@ -2568,21 +2590,22 @@ def _scan_quota_allowed(email: str) -> bool:
                 _ensure_scan_usage_table(conn)
                 with conn.cursor() as cur:
                     cur.execute(
-                        "INSERT INTO scan_usage (email, count) VALUES (%s, 1) "
-                        "ON CONFLICT (email) DO UPDATE SET count = scan_usage.count + 1 "
+                        "INSERT INTO scan_usage (email, period, count) VALUES (%s, %s, %s) "
+                        "ON CONFLICT (email, period) DO UPDATE SET count = scan_usage.count + %s "
                         "RETURNING count",
-                        (email,),
+                        (email, period, increment, increment),
                     )
                     new_count = cur.fetchone()[0]
                 conn.commit()
-            return new_count <= _FREE_SCAN_LIMIT
+            return new_count <= limit
         except Exception as e:
             _logger.warning("scan_usage PG failed: %s", e)
     data = _load_json(_SCAN_USAGE_PATH) or {}
-    cur = int(data.get(email, 0)) + 1
-    data[email] = cur
+    key = f"{period}:{email}"
+    cur = int(data.get(key, 0)) + increment
+    data[key] = cur
     _save_json(_SCAN_USAGE_PATH, data)
-    return cur <= _FREE_SCAN_LIMIT
+    return cur <= limit
 
 
 # ---------------------------------------------------------------------------
@@ -2747,11 +2770,15 @@ def _require_dash_secret() -> None:
         raise HTTPException(status_code=503, detail="Dashboard non configuré : définissez DASH_SECRET côté serveur.")
 
 
-async def _has_active_subscription(email: str) -> bool:
-    """Vérifie via Stripe qu'un customer a un abonnement actif ou en période d'essai."""
+_subscription_tier_cache: Dict[str, Tuple[float, Optional[str]]] = {}
+_SUBSCRIPTION_CACHE_TTL_SECONDS = 60.0
+
+
+async def _fetch_subscription_tier(email: str) -> Optional[str]:
+    """Interroge Stripe et retourne 'pro' | 'agency' selon l'abonnement actif/essai, sinon None."""
     stripe_key = os.getenv("STRIPE_LIVE_SECRET_KEY")
     if not stripe_key:
-        return False
+        return None
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             r1 = await client.get(
@@ -2761,17 +2788,44 @@ async def _has_active_subscription(email: str) -> bool:
             )
             customers = r1.json().get("data", [])
             if not customers:
-                return False
+                return None
             cid = customers[0]["id"]
             r2 = await client.get(
                 "https://api.stripe.com/v1/subscriptions",
-                params={"customer": cid, "limit": 100},
+                params=[("customer", cid), ("limit", "100"), ("expand[]", "data.items.data.price")],
                 headers={"Authorization": f"Bearer {stripe_key}"},
             )
             subs = r2.json().get("data", [])
-            return any(s.get("status") in ("active", "trialing") for s in subs)
+            active = [s for s in subs if s.get("status") in ("active", "trialing")]
+            if not active:
+                return None
+            for s in active:
+                for item in s.get("items", {}).get("data", []):
+                    amount = (item.get("price") or {}).get("unit_amount") or 0
+                    if amount >= 19900:
+                        return "agency"
+                    if amount >= 4900:
+                        return "pro"
+            return None
     except Exception:
-        return False
+        return None
+
+
+async def _get_subscription_tier(email: str) -> Optional[str]:
+    """Palier d'abonnement avec cache mémoire (TTL 60 s) — évite 2 appels Stripe par scan."""
+    email = email.strip().lower()
+    now = time.time()
+    cached = _subscription_tier_cache.get(email)
+    if cached and (now - cached[0]) < _SUBSCRIPTION_CACHE_TTL_SECONDS:
+        return cached[1]
+    tier = await _fetch_subscription_tier(email)
+    _subscription_tier_cache[email] = (now, tier)
+    return tier
+
+
+async def _has_active_subscription(email: str) -> bool:
+    """Vrai si un abonnement actif ou en essai existe (n'importe quel palier)."""
+    return await _get_subscription_tier(email) is not None
 
 
 @app.post("/api/dashboard/request-code", dependencies=[Depends(_auth_rate_limit)])

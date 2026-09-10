@@ -232,7 +232,7 @@ class TestE2EPipeline(unittest.TestCase):
         with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp), \
              patch("server.fetch_robots_txt", new_callable=AsyncMock, return_value=fake_robots), \
              patch("server.check_llms_txt", new_callable=AsyncMock, return_value=fake_llms), \
-             patch("server._has_active_subscription", new_callable=AsyncMock, return_value=True):
+             patch("server._get_subscription_tier", new_callable=AsyncMock, return_value="agency"):
 
             ip_a = "192.168.1.100"
             limit = server._scan_limiter.limit  # 10 par défaut
@@ -1182,7 +1182,7 @@ Disallow: /api/v1/trebuchet
             def model_dump(self):
                 return {"score": 80, "name": "Produit Test", "aiView": {"hallucinationRisk": "FAIBLE"}}
 
-        with patch("server._has_active_subscription", new_callable=AsyncMock, return_value=True), \
+        with patch("server._get_subscription_tier", new_callable=AsyncMock, return_value="agency"), \
              patch("server._run_scan", new_callable=AsyncMock, return_value=_FakeResult()):
             # 1. Lancement : 3 URLs dont 1 doublon → 2 uniques après dédup
             res = self.client.post("/api/scan-batch", json={
@@ -1213,7 +1213,7 @@ Disallow: /api/v1/trebuchet
             self.assertIn("https://a.fr/produit", res_csv.text)
 
         # 4. Sans abonnement → 402
-        with patch("server._has_active_subscription", new_callable=AsyncMock, return_value=False):
+        with patch("server._get_subscription_tier", new_callable=AsyncMock, return_value=None):
             res = self.client.post("/api/scan-batch", json={
                 "email": "x@y.fr", "urls": ["https://a.fr/produit"]
             })
@@ -1221,6 +1221,26 @@ Disallow: /api/v1/trebuchet
 
         # 5. Job inexistant → 404
         self.assertEqual(self.client.get("/api/scan-batch/inexistant").status_code, 404)
+
+    def test_39_scan_quota_tiers(self):
+        """Quota mensuel par palier : plafonnement, remise à zéro mensuelle, increment (batch)."""
+        # 1. Plafonnement à la limite
+        for _ in range(3):
+            self.assertTrue(server._scan_quota_allowed("quota@test.fr", limit=3))
+        self.assertFalse(server._scan_quota_allowed("quota@test.fr", limit=3))
+
+        # 2. Clé mensuelle 'YYYY-MM:email' (remise à zéro chaque mois)
+        data = server._load_json(server._SCAN_USAGE_PATH) or {}
+        self.assertIn(f"{server._current_period()}:quota@test.fr", data)
+
+        # 3. increment (batch) : consomme N d'un coup et plafonne
+        self.assertTrue(server._scan_quota_allowed("batch@test.fr", limit=10, increment=7))
+        self.assertFalse(server._scan_quota_allowed("batch@test.fr", limit=10, increment=7))  # 14 > 10
+
+        # 4. Constantes alignées sur le pricing (gratuit 5 / Pro 250 / Agency 2500)
+        self.assertEqual(server._FREE_SCAN_LIMIT, 5)
+        self.assertEqual(server._PRO_SCAN_LIMIT, 250)
+        self.assertEqual(server._AGENCY_SCAN_LIMIT, 2500)
 
 
 if __name__ == "__main__":
