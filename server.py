@@ -524,10 +524,11 @@ async def _assert_scan_target_ok(url: str) -> None:
     resolved = await asyncio.to_thread(_resolve_all_ips, host) if host else None
     if not resolved:
         return  # DNS indisponible → on laisse httpx décider (démo/test)
-    # Bloque si toutes les adresses résolues sont non-publiques
-    if all(_is_nonpublic_ip(ip) for ip in resolved):
-        first_reason = _structural_ssrf_reason(resolved[0]) or "adresse IP réservée/privée (SSRF)"
-        raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {first_reason}.")
+    # Bloque si AU MOINS UNE adresse résolue est non-publique (anti DNS-rebinding).
+    for ip in resolved:
+        if _is_nonpublic_ip(ip):
+            reason = _structural_ssrf_reason(ip) or "adresse IP réservée/privée (SSRF)"
+            raise HTTPException(status_code=400, detail=f"URL bloquée (SSRF) : l'hôte résout vers une {reason}.")
 
 
 async def _validate_httpx_request_target(request: httpx.Request) -> None:
@@ -2123,13 +2124,14 @@ async def generate_and_download_pdf(req: PdfReportRequest):
     risk = _ai_view.get("hallucinationRisk", "MOYEN")
 
     # 1. Sauvegarder de façon résiliente le prospect (Postgres + Slack + Backup CSV)
-    save_lead(email, domain, name, score, status_label, risk, source="pdf_modal")
+    #    — déporté en thread : Slack/Resend bloqueraient sinon la boucle asynchrone (~8s).
+    await asyncio.to_thread(save_lead, email, domain, name, score, status_label, risk, source="pdf_modal")
 
     # 1b. Si consentement, démarrer la séquence de nurture (autorepondeur 9 emails)
     if req.consent:
         try:
-            register_subscriber(email, domain, name, score, status_label)
-            send_welcome(email, domain, name, score, status_label)
+            await asyncio.to_thread(register_subscriber, email, domain, name, score, status_label)
+            await asyncio.to_thread(send_welcome, email, domain, name, score, status_label)
         except Exception as e:
             print("Erreur séquence email :", e)
 

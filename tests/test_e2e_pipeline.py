@@ -38,6 +38,13 @@ class TestE2EPipeline(unittest.TestCase):
     def setUpClass(cls):
         cls.client = TestClient(app)
 
+    def setUp(self):
+        """Isole l'état du quota entre les tests (scan_usage.json persiste sinon → 402 parasites)."""
+        usage_path = server._SCAN_USAGE_PATH
+        if os.path.exists(usage_path):
+            os.remove(usage_path)
+        server._scan_limiter.reset()
+
     def test_01_scan_scoring_and_no_sync_llm(self):
         """Étape 1 : Vérifie le calcul 5 piliers et l'absence de LLM synchrone sur /api/scan."""
         # 1. Vérification du calcul théorique de la formule pondérée
