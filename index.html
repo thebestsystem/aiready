@@ -532,17 +532,17 @@
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: var(--cyan-400); margin-bottom: 0.5rem;">13×</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Croissance des ordres issus de la recherche IA</div>
-          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Shopify — T1 2026</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;"><a href="https://www.shopify.com/enterprise/blog/ai-search-insights" target="_blank" rel="noopener" style="color: var(--cyan-400); text-decoration: none;">Shopify — T1 2026 ↗</a></div>
         </div>
         <div>
-          <div style="font-size: 3rem; font-weight: 800; color: var(--emerald-400); margin-bottom: 0.5rem;">+54%</div>
+          <div style="font-size: 3rem; font-weight: 800; color: var(--emerald-400); margin-bottom: 0.5rem;">+50%</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Conversion supérieure du trafic référé par IA</div>
-          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Shopify & Adobe — 2026</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;"><a href="https://www.shopify.com/enterprise/blog/ai-search-insights" target="_blank" rel="noopener" style="color: var(--emerald-400); text-decoration: none;">Shopify — T1 2026 ↗</a></div>
         </div>
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: var(--violet-400); margin-bottom: 0.5rem;">$67 Md</div>
           <div style="color: var(--text-secondary); font-size: 0.95rem;">Ventes influencées par les agents IA en une semaine</div>
-          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;">Salesforce — Cyber Week 2025</div>
+          <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.25rem;"><a href="https://www.salesforce.com/news/press-releases/2025/12/05/cyber-week-ai-agents-sales/" target="_blank" rel="noopener" style="color: var(--violet-400); text-decoration: none;">Salesforce — Cyber Week 2025 ↗</a></div>
         </div>
         <div>
           <div style="font-size: 3rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">&lt; 15s</div>
@@ -948,6 +948,48 @@
         <div class="code-view-container">
           <pre><code id="code-display-block">Chargement du code...</code></pre>
         </div>
+      </div>
+
+      <!-- Guide de déploiement par plateforme -->
+      <div style="margin-top: 2rem; text-align: center;">
+        <h3 style="font-size: 1.05rem; margin-bottom: 1.25rem; color: #fff;">Comment déployer ce correctif ?</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; text-align: left;">
+          <div class="pillar-card" style="padding: 1.25rem;">
+            <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff;"><i class="fas fa-store" style="color: var(--cyan-400);"></i> Shopify</h4>
+            <ol style="padding-left: 1.1rem; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.7; margin: 0;">
+              <li>Boutique → Thèmes → <b>Modifier le code</b></li>
+              <li>Collez le JSON-LD dans <code>theme.liquid</code> avant <code>&lt;/head&gt;</code></li>
+              <li>Créez une page « llms.txt » et collez-y le contenu</li>
+            </ol>
+          </div>
+          <div class="pillar-card" style="padding: 1.25rem;">
+            <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff;"><i class="fas fa-cubes" style="color: var(--cyan-400);"></i> WooCommerce</h4>
+            <ol style="padding-left: 1.1rem; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.7; margin: 0;">
+              <li>Installez un plugin « Insert Headers &amp; Footers »</li>
+              <li>Collez le JSON-LD dans la section <code>&lt;head&gt;</code></li>
+              <li>Ajoutez <code>llms.txt</code> à la racine (FTP / cPanel)</li>
+            </ol>
+          </div>
+          <div class="pillar-card" style="padding: 1.25rem;">
+            <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; color: #fff;"><i class="fas fa-shopping-bag" style="color: var(--cyan-400);"></i> PrestaShop</h4>
+            <ol style="padding-left: 1.1rem; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.7; margin: 0;">
+              <li>Paramètres → Trafic &amp; SEO (ou module Header)</li>
+              <li>Collez le JSON-LD dans la balise <code>&lt;head&gt;</code></li>
+              <li>Déposez <code>llms.txt</code> à la racine du site</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upsell "on s'en occupe" -->
+      <div style="text-align: center; margin-top: 2rem; padding: 1.75rem 1.5rem; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.28); border-radius: 14px;">
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1.1rem; line-height: 1.6;">
+          <i class="fas fa-hand-sparkles" style="color: var(--cyan-400); margin-right: 0.3rem;"></i>
+          <strong style="color: #fff;">Pas envie de toucher au code ?</strong> On déploie tout pour vous — testé et garanti.
+        </p>
+        <a href="mailto:contact@agentready.io?subject=D%C3%A9ploiement%20AgentReady%20pour%20ma%20boutique" class="btn btn-primary" style="font-size: 0.95rem;">
+          <i class="fas fa-rocket"></i> On s'en occupe — demander un devis
+        </a>
       </div>
 
     </div>

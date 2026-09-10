@@ -120,8 +120,8 @@ SEQUENCE = [
         "subject": "Vos concurrents sont-ils prêts pour l'AI search ?",
         "body": (
             "<p>Bonjour,</p>"
-            "<p>Le trafic issu des moteurs IA a bondi de <b>+805%</b> en glissement annuel, avec un taux de conversion "
-            "<b>2,5x à 4x supérieur</b> au trafic de recherche classique (McKinsey, Bain, Morgan Stanley).</p>"
+            "<p>Le trafic issu des moteurs IA vers les sites retail a bondi de <b>+805%</b> sur le Black Friday 2025 (Adobe Analytics), avec un taux de conversion "
+            "<b>~50% supérieur</b> au trafic de recherche classique (Shopify, T1 2026).</p>"
             "<p>La question n'est plus « est-ce que ça arrive ? » mais « qui capte ce trafic en premier ? » "
             "Chaque semaine sans optimisation = des recommandations qui partent chez un concurrent.</p>"
             "<p><a href='{site}#pricing' style='color:#06b6d4;'>Prendre de l'avance maintenant →</a></p>"

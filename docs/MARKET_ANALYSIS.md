@@ -5,9 +5,9 @@
 ## 1. Contexte & Macro-Tendances (2025 - 2030)
 
 ### 📈 Données de Marché Chiffrées
-- **Taille globale du marché :** L'IA agentique appliquée au retail et à l'e-commerce représente un marché estimé entre **46,7 et 60,4 milliards de dollars en 2026**, avec une projection de **3 000 à 5 000 milliards de dollars d'ici 2030** (McKinsey, Bain & Company, Morgan Stanley).
-- **Explosion du trafic IA :** Les redirections et recommandations directes issues de moteurs d'IA générative (ChatGPT Search, Perplexity Shopping, Google Gemini, Copilot) ont augmenté de **+805% en glissement annuel** lors de la dernière saison commerciale.
-- **Conversion & Intention d'Achat :** Les utilisateurs acheminés via un moteur d'IA présentent un taux de conversion **2,5x à 4x supérieur** à celui du trafic de recherche traditionnel, car l'arbitrage et la qualification du besoin sont effectués en amont par l'agent IA.
+- **Taille globale du marché :** L'agentic commerce US est estimé entre **300 et 500 Md$ d'ici 2030** (Bain & Company), et Morgan Stanley projette jusqu'à **385 Md$ de ventes e-commerce agentiques US d'ici 2030**.
+- **Explosion du trafic IA :** Les redirections et recommandations directes issues de moteurs d'IA générative (ChatGPT Search, Perplexity Shopping, Google Gemini, Copilot) ont augmenté de **+805% en glissement annuel** sur le Black Friday 2025 (Adobe Analytics).
+- **Conversion & Intention d'Achat :** Les visiteurs référés par un moteur d'IA convertissent **~50% de plus** que le trafic de recherche traditionnel (Shopify, T1 2026), car l'arbitrage et la qualification du besoin sont effectués en amont par l'agent IA.
 
 ---
 
