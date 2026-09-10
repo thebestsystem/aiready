@@ -402,7 +402,11 @@ function initPdfModal() {
         });
 
         if (!res.ok) {
-          throw new Error(`Erreur HTTP ${res.status}`);
+          let detail = '';
+          try { detail = (await res.json()).detail || ''; } catch (e) {}
+          const err = new Error(detail || `Erreur HTTP ${res.status}`);
+          err.status = res.status;
+          throw err;
         }
 
         const blob = await res.blob();
@@ -430,7 +434,12 @@ function initPdfModal() {
 
       } catch (err) {
         console.error('Erreur génération PDF :', err);
-        alert(`Échec de la génération du rapport (${err.message}). Veuillez vérifier votre connexion et réessayer.`);
+        if (err.status === 403) {
+          const upgrade = confirm('La marque blanche (votre nom sur le rapport) nécessite un abonnement Agency actif (199 €/mois).\n\nLe rapport standard AgentReady reste gratuit.\n\nDécouvrir l\'offre Agence ?');
+          if (upgrade) window.open('/agences', '_blank', 'noopener');
+        } else {
+          alert(`Échec de la génération du rapport (${err.message}). Veuillez vérifier votre connexion et réessayer.`);
+        }
       } finally {
         if (submitBtn) {
           submitBtn.disabled = false;
