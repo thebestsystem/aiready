@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* --------------------------------------------------------------------------
-   AI BUYER SIMULATOR INTERACTION (Google Gemini Flash)
+   COMPLÉTUDE DE L'OFFRE — DÉMO DÉTERMINISTE (Google Gemini Flash en repli)
    -------------------------------------------------------------------------- */
 function initSimulatorTabs() {
   const simNav = document.getElementById('sim-nav-pills');
