@@ -190,7 +190,7 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
         story.append(Spacer(1, 12))
 
     # 3. Tableau des 5 Piliers
-    story.append(Paragraph("Détail des 5 Piliers d'Évaluation Agentique", section_style))
+    story.append(Paragraph("Détail des 5 Piliers d'Évaluation", section_style))
     story.append(Spacer(1, 6))
 
     pillars = audit_data.get("pillars", {})
@@ -201,12 +201,12 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
     p_proto = pillars.get("proto") or pillars.get("protocols", {})
 
     pillars_rows = [
-        [Paragraph("<b>Pilier</b>", normal_style), Paragraph("<b>Pondération</b>", normal_style), Paragraph("<b>Score</b>", normal_style), Paragraph("<b>Statut Technique</b>", normal_style)],
-        [Paragraph("1. Crawl & Bot Access (robots.txt / WAF)", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
-        [Paragraph("2. Schema.org & JSON-LD Déterministe", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
-        [Paragraph("3. Pureté Sémantique & Économie de Tokens", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_tokens.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_tokens.get('status', '--')), normal_style)],
+        [Paragraph("<b>Pilier</b>", normal_style), Paragraph("<b>Pondération</b>", normal_style), Paragraph("<b>Score</b>", normal_style), Paragraph("<b>Statut</b>", normal_style)],
+        [Paragraph("1. ChatGPT peut-il vous lire ?", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_crawl.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_crawl.get('status', '--')), normal_style)],
+        [Paragraph("2. Vos données produit (prix, stock)", normal_style), Paragraph("25%", normal_style), Paragraph(f"<b>{_escape_xml(p_schema.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_schema.get('status', '--')), normal_style)],
+        [Paragraph("3. Clarté de vos fiches", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_tokens.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_tokens.get('status', '--')), normal_style)],
         [Paragraph("4. Complétude de l'offre", normal_style), Paragraph("20%", normal_style), Paragraph(f"<b>{_escape_xml(p_sim.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_sim.get('status', '--')), normal_style)],
-        [Paragraph("5. Protocoles Agentiques (llms.txt / MCP)", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
+        [Paragraph("5. Connexion aux moteurs IA", normal_style), Paragraph("15%", normal_style), Paragraph(f"<b>{_escape_xml(p_proto.get('score', '--'))}/100</b>", normal_style), Paragraph(_escape_xml(p_proto.get('status', '--')), normal_style)],
     ]
 
     t_pillars = Table(pillars_rows, colWidths=[220, 70, 70, 180])
@@ -222,7 +222,7 @@ def generate_pdf_report(audit_data: Dict[str, Any], email: Optional[str] = None,
     story.append(Spacer(1, 15))
 
     # 4. Diagnostic IA Acheteuse
-    story.append(Paragraph("Diagnostic de l'IA Acheteuse (Google Gemini Flash)", section_style))
+    story.append(Paragraph("Diagnostic de l'IA acheteuse", section_style))
     story.append(Spacer(1, 6))
 
     ai_view = audit_data.get("aiView", {})

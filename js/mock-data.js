@@ -11,21 +11,21 @@ export const AUDIT_PRESETS = {
     status: "blind",
     statusLabel: "Agent Blind (Inaudible pour l'IA)",
     statusBadgeClass: "badge-blind",
-    summary: "Ce site bloque les crawlers IA via Cloudflare WAF, souffre d'un balisage Schema.org incomplet et oblige les LLMs à dépenser +5 800 tokens par analyse, provoquant 40% de réponses hallucinées.",
+    summary: "Cette boutique bloque ChatGPT via un pare-feu et n'expose ni prix ni stock de façon lisible. Résultat : l'IA invente jusqu'à 40 % de ses réponses.",
     brokenItems: [
       {
-        title: "Blocage WAF / Robots.txt actif sur GPTBot et ClaudeBot",
-        impact: "Les agents IA ChatGPT Search et Perplexity reçoivent une page de challenge captcha 403 et ne peuvent pas indexer votre offre.",
+        title: "ChatGPT est bloqué à l'entrée de la boutique",
+        impact: "Les robots de ChatGPT et Perplexity reçoivent un captcha et ne peuvent pas lire vos produits — la vente part ailleurs.",
         severity: "critical"
       },
       {
-        title: "Microdonnées Schema.org Offer & Stock inexistantes",
-        impact: "Aucun prix numérique ni stock en direct certifié. Les agents acheteurs refusent d'ajouter au panier.",
+        title: "Prix et stock illisibles pour l'IA",
+        impact: "Aucun prix ni stock certifié : ChatGPT refuse de recommander le produit.",
         severity: "critical"
       },
       {
-        title: "Pollution DOM extrême (5 840 tokens par visite)",
-        impact: "Scripts tiers et trackers inutiles qui saturent la mémoire de contexte des LLMs.",
+        title: "Fiche trop « bruitée » pour l'IA",
+        impact: "Trop de code parasite : l'IA se fatigue et peut abandonner la fiche.",
         severity: "warning"
       }
     ],
@@ -73,19 +73,19 @@ export const AUDIT_PRESETS = {
       has_return: false
     },
     pillars: {
-      crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué / WAF Challenge", label: "Crawl & Bots Access" },
-      schema: { score: 30, max: 100, weight: "25%", status: "Incomplet (0 Offer)", label: "Schema.org / JSON-LD" },
-      tokens: { score: 40, max: 100, weight: "20%", status: "5 840 tokens (Bruit élevé)", label: "Pureté Sémantique" },
+      crawl: { score: 45, max: 100, weight: "20%", status: "Bloqué par un pare-feu", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 30, max: 100, weight: "25%", status: "Incomplet", label: "Vos données produit (prix, stock)" },
+      tokens: { score: 40, max: 100, weight: "20%", status: "Très bruité", label: "Clarté de vos fiches" },
       simulator: { score: 35, max: 100, weight: "20%", status: "Hallucinations détectées", label: "Complétude de l'offre" },
-      proto: { score: 10, max: 100, weight: "15%", status: "Inexistant", label: "Protocoles (llms.txt / MCP)" }
+      proto: { score: 10, max: 100, weight: "15%", status: "Non connecté", label: "Connexion aux moteurs IA" }
     },
     aiView: {
-      tokens: "5 840 tokens",
-      extractedPrice: "249.00 EUR (Devise non explicite dans JSON-LD)",
-      stockStatus: "UNKNOWN (Bouton 'Ajouter au panier' rendu via React client-side)",
-      shippingTerms: "MISSING (L'agent IA estime la livraison entre 5€ et 15€)",
+      tokens: "5 840 tokens de lecture",
+      extractedPrice: "249.00 EUR (devise à confirmer)",
+      stockStatus: "Inconnu (non précisé dans le code)",
+      shippingTerms: "Non précisés (l'IA estime entre 5€ et 15€)",
       hallucinationRisk: "ÉLEVÉ",
-      botAccess: "GPTBot: BLOCKED (WAF Challenge)"
+      botAccess: "Bloqués (pare-feu)"
     }
   },
 
@@ -97,11 +97,11 @@ export const AUDIT_PRESETS = {
     status: "ready",
     statusLabel: "Agent Ready (Parfaitement Optimisé)",
     statusBadgeClass: "badge-ready",
-    summary: "Fiche produit modèle. Données Schema.org 100% validées, latence de crawl < 210ms, tokens optimisés (780 tokens/fiche), fichier llms.txt certifié et serveur MCP actif pour l'achat autonome.",
+    summary: "Fiche produit modèle : prix, stock et conditions parfaitement lisibles par ChatGPT. Il recommande le produit et valide le panier sans hésitation.",
     brokenItems: [
       {
-        title: "Balisage machine irréprochable",
-        impact: "Les bots de ChatGPT, Claude et Perplexity disposent du prix exact, du stock temps réel et des conditions de retour sans hallucination.",
+        title: "Boutique prête pour l'achat IA ✓",
+        impact: "ChatGPT dispose du prix exact, du stock et des conditions de retour — sans rien inventer.",
         severity: "info"
       }
     ],
@@ -159,19 +159,19 @@ export const AUDIT_PRESETS = {
       has_return: true
     },
     pillars: {
-      crawl: { score: 98, max: 100, weight: "20%", status: "SSR Pré-rendu & Bot-Friendly", label: "Crawl & Bots Access" },
-      schema: { score: 96, max: 100, weight: "25%", status: "Complet (Product, Offer, Shipping)", label: "Schema.org / JSON-LD" },
-      tokens: { score: 95, max: 100, weight: "20%", status: "780 tokens (0 bruit DOM)", label: "Pureté Sémantique" },
+      crawl: { score: 98, max: 100, weight: "20%", status: "Accès libre pour ChatGPT", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 96, max: 100, weight: "25%", status: "Complet", label: "Vos données produit (prix, stock)" },
+      tokens: { score: 95, max: 100, weight: "20%", status: "Très clair", label: "Clarté de vos fiches" },
       simulator: { score: 98, max: 100, weight: "20%", status: "5/5 points vérifiés", label: "Complétude de l'offre" },
-      proto: { score: 94, max: 100, weight: "15%", status: "llms.txt + Serveur MCP Actif", label: "Protocoles (llms.txt / MCP)" }
+      proto: { score: 94, max: 100, weight: "15%", status: "Connecté", label: "Connexion aux moteurs IA" }
     },
     aiView: {
-      tokens: "780 tokens (-86% de coût)",
+      tokens: "780 tokens de lecture",
       extractedPrice: "249.00 EUR TTC (Garantie prix exact)",
-      stockStatus: "IN_STOCK (42 unités disponibles en direct)",
+      stockStatus: "En stock (42 unités disponibles en direct)",
       shippingTerms: "Livraison gratuite 24h France métropolitaine",
       hallucinationRisk: "NUL",
-      botAccess: "GPTBot, ClaudeBot, PerplexityBot: AUTORISÉS"
+      botAccess: "Autorisés"
     }
   },
 
@@ -183,16 +183,16 @@ export const AUDIT_PRESETS = {
     status: "friction",
     statusLabel: "Agent Friction (Données partielles)",
     statusBadgeClass: "badge-friction",
-    summary: "Le site est accessible mais manque d'attributs critiques : la politique de retour n'est pas structurée et le stock temps réel n'est pas exposé aux robots.",
+    summary: "ChatGPT accède à votre site, mais il lui manque des infos clés : la politique de retour et le stock ne sont pas lisibles.",
     brokenItems: [
       {
-        title: "Politique de retour et conditions d'échange absentes",
-        impact: "Les agents IA indiquent 'conditions inconnues' à l'acheteur, provoquant une forte hésitation et de l'abandon.",
+        title: "Politique de retour et échanges pas assez clairs",
+        impact: "ChatGPT répond « conditions inconnues » à l'acheteur, qui hésite et abandonne.",
         severity: "warning"
       },
       {
-        title: "Index llms.txt non configuré",
-        impact: "Les bots doivent parser manuellement les pages de catalogue au lieu d'ingérer l'index sémantique direct.",
+        title: "Pas de « carte d'identité » pour les moteurs IA",
+        impact: "ChatGPT doit explorer vos pages une par une au lieu d'utiliser votre fiche de référence.",
         severity: "info"
       }
     ],
@@ -245,19 +245,19 @@ export const AUDIT_PRESETS = {
       image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=800&auto=format&fit=crop&q=80"
     },
     pillars: {
-      crawl: { score: 75, max: 100, weight: "20%", status: "Robots OK mais latence 1.4s", label: "Crawl & Bots Access" },
-      schema: { score: 60, max: 100, weight: "25%", status: "Product OK / Shipping manquant", label: "Schema.org / JSON-LD" },
-      tokens: { score: 68, max: 100, weight: "20%", status: "2 450 tokens", label: "Pureté Sémantique" },
+      crawl: { score: 75, max: 100, weight: "20%", status: "Accès OK", label: "ChatGPT peut-il vous lire ?" },
+      schema: { score: 60, max: 100, weight: "25%", status: "Incomplet (livraison manquante)", label: "Vos données produit (prix, stock)" },
+      tokens: { score: 68, max: 100, weight: "20%", status: "Assez clair", label: "Clarté de vos fiches" },
       simulator: { score: 62, max: 100, weight: "20%", status: "Réponses vagues sur retours", label: "Complétude de l'offre" },
-      proto: { score: 35, max: 100, weight: "15%", status: "llms.txt alternatif (/llms.txt)", label: "Protocoles (llms.txt / MCP)" }
+      proto: { score: 35, max: 100, weight: "15%", status: "Partiellement connecté", label: "Connexion aux moteurs IA" }
     },
     aiView: {
-      tokens: "2 450 tokens",
+      tokens: "2 450 tokens de lecture",
       extractedPrice: "79.00 EUR",
       stockStatus: "En stock (variantes M & L non détaillées)",
-      shippingTerms: "Frais de port introuvables dans le DOM machine",
+      shippingTerms: "Frais de port introuvables",
       hallucinationRisk: "MOYEN",
-      botAccess: "Bots IA: AUTORISÉS"
+      botAccess: "Autorisés"
     }
   }
 };
@@ -271,7 +271,7 @@ export const SIMULATOR_QUESTIONS = [
     standardResponse: {
       type: "fail",
       agentStatus: "⚠️ Risque d'hallucination élevé",
-      response: "D'après la page, je ne trouve pas d'information explicite sur les frais de port pour Lyon car la section est générée dynamiquement par un script de panier. Les frais sont généralement compris entre 4,90 € et 9,90 €, mais je ne peux pas le garantir avec certitude avant le checkout.",
+      response: "D'après la page, je ne trouve pas d'information explicite sur les frais de port pour Lyon car la boutique n'affiche pas clairement ses frais de port sur la fiche. Les frais sont généralement compris entre 4,90 € et 9,90 €, mais je ne peux pas le garantir avec certitude avant le checkout.",
       verdict: "Recommandation avortée : L'agent IA hésite et renvoie l'utilisateur vers Amazon où la livraison est claire."
     },
     agentReadyResponse: {
@@ -288,12 +288,12 @@ export const SIMULATOR_QUESTIONS = [
     standardResponse: {
       type: "fail",
       agentStatus: "⚠️ Information introuvable",
-      response: "La fiche produit ne contient pas de données structurées sur les retours (`hasMerchantReturnPolicy` manquant). Le texte du footer mentionne 'conditions générales de vente' mais le robot ne peut pas analyser ce document PDF volumineux.",
+      response: "La fiche produit n'indique pas clairement sa politique de retour. Le texte du footer mentionne 'conditions générales de vente' mais le robot ne peut pas analyser ce document PDF volumineux.",
       verdict: "Friction d'achat : L'agent avertit l'utilisateur du manque de garantie transparente."
     },
     agentReadyResponse: {
       type: "success",
-      agentStatus: "✅ Spécification Schema.org Validée",
+      agentStatus: "✅ Données produit certifiées",
       response: "Vous bénéficiez de 30 jours d'essai 'Satisfait ou Remboursé' avec retour gratuit sans frais de réapprovisionnement, plus une garantie constructeur de 2 ans pièces et main d'œuvre.",
       verdict: "Conversion maximale : Confiance absolue confirmée par l'agent IA."
     }
@@ -304,13 +304,13 @@ export const SIMULATOR_QUESTIONS = [
     userPrompt: "Le modèle Noir Mat est-il disponible immédiatement pour un envoi aujourd'hui ?",
     standardResponse: {
       type: "fail",
-      agentStatus: "❌ Échec de lecture DOM",
-      response: "Le sélecteur de couleur est géré par un script React côté client non exécuté par le bot. Je ne peux pas confirmer si le coloris Noir Mat est disponible ou en rupture.",
+      agentStatus: "❌ Stock illisible",
+      response: "La boutique affiche le stock via un menu que le robot ne peut pas lire. Je ne peux pas confirmer si le coloris Noir Mat est disponible ou en rupture.",
       verdict: "Abandon d'achat : Le bot cherche une alternative en stock chez un concurrent."
     },
     agentReadyResponse: {
       type: "success",
-      agentStatus: "✅ Flux MCP Temps Réel",
+      agentStatus: "✅ Stock en temps réel",
       response: "Oui, le coloris Noir Mat (SKU: NC700-BLK) dispose actuellement de 42 unités en stock prêtes à l'expédition immédiate.",
       verdict: "Succès : Produit sélectionné et validé."
     }
