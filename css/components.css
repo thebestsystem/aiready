@@ -732,7 +732,7 @@
    -------------------------------------------------------------------------- */
 .pillars-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 1.75rem;
 }
 
@@ -1507,6 +1507,10 @@ pre code {
   }
   .btn-lg {
     width: 100%;
+    white-space: normal;
+  }
+  .btn {
+    max-width: 100%;
     white-space: normal;
   }
   .modal-card {
