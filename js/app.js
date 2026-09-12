@@ -2,10 +2,12 @@
    AGENTREADY - Main Application Orchestrator
    ========================================================================== */
 
-import { ScannerSimulator } from './scanner-simulator.js?v=2.7';
-import { SplitScreenViewer } from './split-screen.js?v=2.7';
-import { SIMULATOR_QUESTIONS, CODE_SNIPPETS } from './mock-data.js?v=2.7';
-import { BOOKING_URL, CHECKOUT_URL, CONTACT_EMAIL } from './config.js?v=2.7';
+import { ScannerSimulator } from './scanner-simulator.js?v=2.8';
+import { SplitScreenViewer } from './split-screen.js?v=2.8';
+import { SIMULATOR_QUESTIONS, CODE_SNIPPETS } from './mock-data.js?v=2.8';
+import { BOOKING_URL, CHECKOUT_URL, AGENCY_CHECKOUT_URL, CHECKOUT_URL_ANNUAL, AGENCY_CHECKOUT_URL_ANNUAL, CONTACT_EMAIL } from './config.js?v=2.8';
+
+let billingAnnual = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Initialize Scanner & Split Viewer
@@ -266,10 +268,13 @@ function initPricingToggle() {
   const toggle = document.getElementById('pricing-billing-toggle');
   const pricePro = document.getElementById('price-pro');
   const priceAgency = document.getElementById('price-agency');
+  const agencyCta = document.getElementById('btn-agency-cta');
+  const agencyCtaPrice = document.getElementById('agency-cta-price');
 
   if (!toggle) return;
 
-  toggle.addEventListener('change', () => {
+  const apply = () => {
+    billingAnnual = toggle.checked;
     if (toggle.checked) {
       // Annual (-20%)
       if (pricePro) pricePro.innerHTML = '39 € <span class="pricing-period">/ mois (facturé annuellement)</span>';
@@ -279,7 +284,17 @@ function initPricingToggle() {
       if (pricePro) pricePro.innerHTML = '49 € <span class="pricing-period">/ mois</span>';
       if (priceAgency) priceAgency.innerHTML = '199 € <span class="pricing-period">/ mois</span>';
     }
-  });
+    // Swap the CTA targets + the price shown inside the agency button.
+    if (agencyCta) {
+      agencyCta.href = billingAnnual ? AGENCY_CHECKOUT_URL_ANNUAL : AGENCY_CHECKOUT_URL;
+    }
+    if (agencyCtaPrice) {
+      agencyCtaPrice.textContent = billingAnnual ? '159 €/mois' : '199 €/mois';
+    }
+  };
+
+  toggle.addEventListener('change', apply);
+  apply();
 }
 
 /* --------------------------------------------------------------------------
@@ -461,10 +476,11 @@ function initMonetizationCtas() {
     }
   };
 
-  // Pro Merchant : Stripe checkout si configuré, sinon booking, sinon email.
+  // Pro Merchant : Stripe checkout (mensuel ou annuel selon le toggle), sinon booking, sinon email.
   if (proBtn) {
     proBtn.addEventListener('click', () => {
-      openOrMail(CHECKOUT_URL || BOOKING_URL, 'Essai Pro Merchant - AgentReady');
+      const url = billingAnnual ? CHECKOUT_URL_ANNUAL : (CHECKOUT_URL || BOOKING_URL);
+      openOrMail(url, 'Essai Pro Merchant - AgentReady');
     });
   }
 

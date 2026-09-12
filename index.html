@@ -631,9 +631,9 @@
         <!-- Billing Toggle -->
         <div style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 2rem;">
           <span style="font-size: 0.95rem; color: var(--text-secondary);">Facturation Mensuelle</span>
-          <label style="position: relative; display: inline-block; width: 50px; height: 26px;">
-            <input type="checkbox" id="pricing-billing-toggle" style="opacity: 0; width: 0; height: 0;">
-            <span style="position: absolute; cursor: pointer; inset: 0; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); border-radius: 34px; transition: 0.3s;"></span>
+          <label class="billing-switch">
+            <input type="checkbox" id="pricing-billing-toggle">
+            <span class="billing-slider"></span>
           </label>
           <span style="font-size: 0.95rem; color: var(--cyan-400); font-weight: 600;">Annuel (-20% de réduction)</span>
         </div>
@@ -702,7 +702,7 @@
             <li class="included"><i class="fas fa-check"></i> Support prioritaire & canal Slack partagé</li>
           </ul>
 
-          <a href="https://buy.stripe.com/4gM8wQa0te9cdQQ3hpco004" target="_blank" rel="noopener" class="btn btn-primary" style="width: 100%;">Souscrire — 199 €/mois (14 j d'essai)</a>
+          <a href="https://buy.stripe.com/4gM8wQa0te9cdQQ3hpco004" target="_blank" rel="noopener" class="btn btn-primary" id="btn-agency-cta" style="width: 100%;">Souscrire — <span id="agency-cta-price">199 €/mois</span> (14 j d'essai)</a>
         </div>
 
       </div>
@@ -1248,7 +1248,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="js/app.js?v=2.7"></script>
+  <script type="module" src="js/app.js?v=2.8"></script>
 <script>
   (function() {
     var d = new Date();
