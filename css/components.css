@@ -595,6 +595,7 @@
   line-height: 1.6;
   color: #a5f3fc;
   overflow-y: auto;
+  overflow-x: auto;
 }
 
 .ai-tag-missing {
@@ -966,6 +967,7 @@
   padding: 1.5rem;
   max-height: 420px;
   overflow-y: auto;
+  overflow-x: auto;
   font-family: var(--font-mono);
   font-size: 0.88rem;
   line-height: 1.7;
@@ -974,6 +976,13 @@
 
 pre code {
   font-family: inherit;
+}
+
+/* Responsive : les blocs de code coupent les lignes, sans jamais élargir la page */
+.code-view-container pre,
+.ai-raw-stream pre {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Syntax highlight simulation */
@@ -1478,7 +1487,10 @@ pre code {
     gap: 0.75rem;
   }
   .pricing-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .pricing-card {
+    min-width: 0;
   }
   .footer-grid {
     grid-template-columns: 1fr 1fr !important;
@@ -1492,6 +1504,10 @@ pre code {
   }
   .footer-grid {
     grid-template-columns: 1fr !important;
+  }
+  .btn-lg {
+    width: 100%;
+    white-space: normal;
   }
   .modal-card {
     padding: 1.25rem !important;
