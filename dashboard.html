@@ -22,7 +22,7 @@
         <div class="brand-icon"><i class="fas fa-robot"></i></div>
         <span>Agent<span class="gradient-text-glow">Ready</span></span>
       </a>
-      <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <a href="/espace-client" class="btn btn-secondary btn-sm">Mon abonnement</a>
         <a href="/" class="btn btn-secondary btn-sm">Retour au site</a>
       </div>
@@ -72,7 +72,7 @@
       <div class="report-preview" style="padding: 1.5rem; margin-top: 1.5rem;">
         <label style="font-size: 0.85rem; font-weight: 600; color: #475569;">Lancer un audit</label>
         <form id="scan-form" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-          <input type="text" id="scan-url" required class="scanner-input" placeholder="https://votre-boutique.com/produit" style="flex: 1; min-width: 240px; padding-left: 1rem;">
+          <input type="text" id="scan-url" required class="scanner-input" placeholder="https://votre-boutique.com/produit" style="flex: 1; min-width: 0; padding-left: 1rem;">
           <button type="submit" class="btn btn-primary"><i class="fas fa-bolt"></i> Scanner</button>
         </form>
         <div id="scan-feedback" style="display: none; margin-top: 1rem; color: #dc2626; font-size: 0.85rem;"></div>
